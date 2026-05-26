@@ -11,7 +11,7 @@ function resolveServerUrl(): string {
   const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
   if (isLocal) return 'http://localhost:3001';
   // TODO: Replace the placeholder below with your actual Render deploy URL before deploying
-  return 'https://diamond-heist-server.onrender.com';
+  return 'https://diamond-heist.onrender.com';
 }
 
 @Injectable({
