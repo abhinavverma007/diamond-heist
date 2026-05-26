@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Diamond Heist: Mini Arenas – WebSocket game server",
   "main": "dist/server.js",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
