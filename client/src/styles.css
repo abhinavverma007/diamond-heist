@@ -1,0 +1,295 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Import fun Google Font for kids ───────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800;900&display=swap');
+
+/* ── Global resets ─────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #0d0b1e;
+  color: #f1f5f9;
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+input, textarea {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* ── Safe area ─────────────────────────────────────────────────────── */
+.pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+.pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+
+/* ── Space background with floating stars ──────────────────────────── */
+.space-bg {
+  background: radial-gradient(ellipse at top, #1a0a3e 0%, #0d0b1e 60%);
+  position: relative;
+  overflow: hidden;
+}
+
+.space-bg::before,
+.space-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1px 1px at 20% 15%, #fff 0%, transparent 100%),
+    radial-gradient(1px 1px at 80% 10%, #fff 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 45% 25%, #facc15 0%, transparent 100%),
+    radial-gradient(1px 1px at 65% 40%, #fff 0%, transparent 100%),
+    radial-gradient(1px 1px at 10% 60%, #fff 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 90% 55%, #a78bfa 0%, transparent 100%),
+    radial-gradient(1px 1px at 30% 80%, #fff 0%, transparent 100%),
+    radial-gradient(1px 1px at 75% 85%, #fff 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 55% 70%, #facc15 0%, transparent 100%),
+    radial-gradient(1px 1px at 5%  35%, #fff 0%, transparent 100%),
+    radial-gradient(1px 1px at 95% 30%, #fff 0%, transparent 100%);
+  animation: twinkle 4s ease-in-out infinite alternate;
+}
+
+.space-bg::after {
+  animation-delay: 2s;
+  background-image:
+    radial-gradient(1px 1px at 15% 45%, #fff 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 70% 20%, #38bdf8 0%, transparent 100%),
+    radial-gradient(1px 1px at 40% 55%, #fff 0%, transparent 100%),
+    radial-gradient(1px 1px at 85% 70%, #fff 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 25% 90%, #f0abfc 0%, transparent 100%);
+}
+
+@keyframes twinkle {
+  from { opacity: 0.6; }
+  to   { opacity: 1; }
+}
+
+/* ── Game board ─────────────────────────────────────────────────────── */
+.board-container {
+  width: min(85vw, calc(100svh - 180px));
+  height: min(85vw, calc(100svh - 180px));
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 20px rgba(139, 92, 246, 0.3));
+}
+
+.board-grid {
+  display: grid;
+  grid-template-columns: repeat(15, 1fr);
+  grid-template-rows: repeat(15, 1fr);
+  width: 100%;
+  height: 100%;
+  gap: 1px;
+  background-color: #2e1065;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 2px solid #7c3aed;
+  box-shadow: 0 0 30px rgba(124, 58, 237, 0.4), inset 0 0 20px rgba(0,0,0,0.5);
+}
+
+.board-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(min(85vw, calc(100svh - 180px)) / 15 * 0.72);
+  line-height: 1;
+  touch-action: manipulation;
+}
+
+/* Checkerboard empty cells */
+.cell-light { background-color: #1e1b4b; }
+.cell-dark  { background-color: #17174a; }
+
+/* Diamond – glowing gold */
+.board-cell--diamond {
+  background-color: #451a03;
+  animation: diamond-pulse 1.4s ease-in-out infinite;
+  position: relative;
+}
+
+@keyframes diamond-pulse {
+  0%, 100% { background-color: #451a03; box-shadow: inset 0 0 6px #fbbf24; }
+  50%       { background-color: #78350f; box-shadow: inset 0 0 10px #fde68a; }
+}
+
+/* Current-turn player – green glow + fast pulse */
+.board-cell--current {
+  background-color: #14532d;
+  animation: current-pulse 0.8s ease-in-out infinite;
+}
+
+@keyframes current-pulse {
+  0%, 100% { background-color: #14532d; }
+  50%       { background-color: #166534; box-shadow: inset 0 0 8px #4ade80; }
+}
+
+/* Other player */
+.board-cell--player {
+  background-color: #1e3a5f;
+}
+
+/* My own piece – bright yellow ring */
+.board-cell--me {
+  outline: 2px solid #fde047;
+  outline-offset: -2px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Dice ───────────────────────────────────────────────────────────── */
+.dice-box {
+  width: 68px;
+  height: 68px;
+  background: linear-gradient(145deg, #ffffff, #e0e7ff);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.6rem;
+  line-height: 1;
+  box-shadow:
+    0 6px 20px rgba(0,0,0,0.5),
+    0 0 0 3px #7c3aed,
+    0 0 20px rgba(124,58,237,0.4);
+  color: #1e1b4b;
+  touch-action: manipulation;
+}
+
+.dice-box.dice-rolling {
+  animation: dice-shake 0.35s ease-in-out infinite;
+}
+
+.dice-box.dice-landed {
+  animation: dice-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes dice-shake {
+  0%   { transform: rotate(-12deg) scale(1.05); }
+  25%  { transform: rotate(12deg)  scale(1.12); }
+  50%  { transform: rotate(-8deg)  scale(1.08); }
+  75%  { transform: rotate(8deg)   scale(1.05); }
+  100% { transform: rotate(-12deg) scale(1.05); }
+}
+
+@keyframes dice-pop {
+  0%   { transform: scale(0.4) rotate(-20deg); opacity: 0; }
+  60%  { transform: scale(1.25) rotate(5deg);  opacity: 1; }
+  80%  { transform: scale(0.95) rotate(-2deg); }
+  100% { transform: scale(1) rotate(0deg);     opacity: 1; }
+}
+
+/* ── D-pad ──────────────────────────────────────────────────────────── */
+.dpad {
+  display: grid;
+  grid-template-columns: repeat(3, 3rem);
+  grid-template-rows: repeat(3, 3rem);
+  gap: 4px;
+}
+
+.dpad-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(145deg, #4f46e5, #7c3aed);
+  border: none;
+  border-radius: 10px;
+  font-size: 1.3rem;
+  color: #fff;
+  cursor: pointer;
+  touch-action: manipulation;
+  box-shadow: 0 4px 0 #312e81, 0 6px 12px rgba(0,0,0,0.4);
+  transition: transform 0.08s, box-shadow 0.08s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dpad-btn:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #312e81, 0 2px 6px rgba(0,0,0,0.3);
+}
+
+.dpad-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────── */
+.btn-primary {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: scale(0.95) translateY(2px);
+}
+
+/* ── Winner modal ───────────────────────────────────────────────────── */
+.winner-modal {
+  animation: modal-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes modal-pop {
+  from { opacity: 0; transform: scale(0.5) rotate(-5deg); }
+  to   { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+/* ── Pulse dot (lobby waiting) ──────────────────────────────────────── */
+.pulse-dot { animation: pulseDot 1.2s ease-in-out infinite; }
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.3; transform: scale(0.8); }
+}
+
+/* ── Floating bounce (lobby emoji) ─────────────────────────────────── */
+.float-bounce { animation: floatBounce 2s ease-in-out infinite; }
+
+@keyframes floatBounce {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-8px); }
+}
+
+/* ── Slide-in for status bar text ───────────────────────────────────── */
+.slide-in {
+  animation: slideIn 0.3s ease-out forwards;
+}
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Player hop (step-by-step move animation) ───────────────────────── */
+/* Squash-and-stretch keeps the emoji within its cell bounds.            */
+@keyframes player-hop {
+  0%   { transform: scale(1,    1);    }
+  20%  { transform: scale(0.82, 1.28); }  /* pre-jump squash */
+  50%  { transform: scale(1.35, 0.82); }  /* apex stretch    */
+  75%  { transform: scale(0.9,  1.15); }  /* landing squash  */
+  90%  { transform: scale(1.05, 0.96); }  /* settle          */
+  100% { transform: scale(1,    1);    }
+}
+
+.board-cell--hopping {
+  animation: player-hop 0.13s ease-out forwards;
+  position: relative;
+  z-index: 5;
+}

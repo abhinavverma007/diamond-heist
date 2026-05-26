@@ -1,0 +1,61 @@
+# ── Dependencies ─────────────────────────────────────────────────
+node_modules/
+.pnp
+.pnp.js
+
+# ── Build outputs ────────────────────────────────────────────────
+dist/
+build/
+out/
+.next/
+
+# ── Environment / secrets ────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+
+# ── Logs ─────────────────────────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ── OS artifacts ─────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+desktop.ini
+
+# ── Editor / IDE ─────────────────────────────────────────────────
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swp
+.cursor/
+
+# ── Angular specific ─────────────────────────────────────────────
+client/.angular/
+client/dist/
+
+# ── TypeScript ───────────────────────────────────────────────────
+*.tsbuildinfo
+server/dist/
+
+# ── Testing ──────────────────────────────────────────────────────
+coverage/
+.nyc_output/
+
+# ── Misc ─────────────────────────────────────────────────────────
+.cache/
+.temp/
+*.tmp

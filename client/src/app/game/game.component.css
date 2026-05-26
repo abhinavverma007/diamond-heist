@@ -1,0 +1,9 @@
+:host {
+  display: contents;
+}
+
+/* Force 100svh on inner wrapper for iOS Chrome safe-area support */
+:host > div {
+  height: 100%;
+  height: 100svh;
+}

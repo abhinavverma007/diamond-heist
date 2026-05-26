@@ -1,0 +1,6 @@
+{
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "buildCommand": "npm run build:prod",
+  "outputDirectory": "dist/diamond-heist",
+  "installCommand": "npm install"
+}

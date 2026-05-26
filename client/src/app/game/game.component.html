@@ -1,0 +1,562 @@
+<!-- ══════════════════════════════════════════════════════════════
+     💎 Diamond Heist: Mini Arenas
+     Full-screen, zero-scroll, mobile-first game shell
+     ══════════════════════════════════════════════════════════════ -->
+<div class="h-screen w-screen overflow-hidden flex flex-col relative space-bg">
+
+
+  <!-- ════════════════════════════════════════════════════════
+       SETUP VIEW
+       ════════════════════════════════════════════════════════ -->
+  <div *ngIf="currentView === 'setup'"
+       class="flex-1 flex flex-col items-center justify-center px-6 gap-4 overflow-hidden">
+
+    <!-- Title card -->
+    <div class="text-center mb-2">
+      <div class="text-6xl float-bounce mb-1">💎</div>
+      <h1 class="text-3xl font-black text-transparent bg-clip-text
+                 bg-gradient-to-r from-yellow-300 via-pink-400 to-purple-400
+                 tracking-tight drop-shadow">
+        Diamond Heist
+      </h1>
+      <p class="text-purple-300 text-sm font-bold mt-0.5">⚡ Mini Arenas ⚡</p>
+    </div>
+
+    <!-- Name input -->
+    <div class="w-full max-w-xs">
+      <label class="text-purple-300 text-xs font-bold uppercase tracking-widest mb-1 block">
+        Your Name
+      </label>
+      <input
+        [(ngModel)]="playerName"
+        type="text"
+        placeholder="Enter your name…"
+        maxlength="16"
+        autocomplete="off"
+        autocapitalize="words"
+        class="w-full px-4 py-3 rounded-2xl text-base font-bold
+               bg-white/10 border-2 border-purple-500 text-white
+               placeholder-purple-400 focus:outline-none focus:border-yellow-400
+               focus:bg-white/15 transition-colors"
+        style="user-select: text; -webkit-user-select: text;"
+      />
+    </div>
+
+    <!-- Create Room button -->
+    <button
+      (click)="createRoom()"
+      [disabled]="!playerName.trim() || isBusy"
+      class="btn-primary w-full max-w-xs py-4 rounded-2xl text-lg
+             bg-gradient-to-r from-yellow-400 to-orange-400
+             text-slate-900 shadow-lg shadow-orange-900/50
+             disabled:opacity-40 disabled:cursor-not-allowed"
+      style="touch-action: manipulation;">
+      <span *ngIf="!isBusy">🎮 Create Room</span>
+      <span *ngIf="isBusy" class="flex items-center justify-center gap-2">
+        <span class="pulse-dot inline-block w-2 h-2 bg-slate-900 rounded-full"></span>
+        Connecting…
+      </span>
+    </button>
+
+    <!-- Divider -->
+    <div class="flex items-center gap-3 w-full max-w-xs">
+      <div class="flex-1 h-px bg-purple-800"></div>
+      <span class="text-purple-500 text-xs font-black tracking-widest">OR</span>
+      <div class="flex-1 h-px bg-purple-800"></div>
+    </div>
+
+    <!-- Join Room section -->
+    <div class="w-full max-w-xs">
+      <label class="text-purple-300 text-xs font-bold uppercase tracking-widest mb-1 block">
+        Room Code
+      </label>
+      <input
+        [(ngModel)]="joinCodeInput"
+        type="text"
+        placeholder="e.g. A3BZ"
+        maxlength="4"
+        autocomplete="off"
+        autocapitalize="characters"
+        class="w-full px-4 py-3 rounded-2xl text-base font-black
+               bg-white/10 border-2 border-blue-500 text-white
+               placeholder-blue-400 focus:outline-none focus:border-cyan-400
+               uppercase tracking-[0.3em] text-center
+               transition-colors"
+        style="user-select: text; -webkit-user-select: text;"
+      />
+    </div>
+
+    <button
+      (click)="joinRoom()"
+      [disabled]="!playerName.trim() || joinCodeInput.length < 4 || isBusy"
+      class="btn-primary w-full max-w-xs py-4 rounded-2xl text-lg
+             bg-gradient-to-r from-cyan-500 to-blue-600
+             text-white shadow-lg shadow-blue-900/50
+             disabled:opacity-40 disabled:cursor-not-allowed"
+      style="touch-action: manipulation;">
+      🚪 Join Room
+    </button>
+
+    <!-- Error -->
+    <p *ngIf="errorMsg"
+       class="text-red-300 text-sm font-bold text-center bg-red-900/40
+              border border-red-600 rounded-xl px-4 py-2 max-w-xs w-full">
+      ⚠️ {{ errorMsg }}
+    </p>
+  </div>
+  <!-- /SETUP VIEW -->
+
+
+  <!-- ════════════════════════════════════════════════════════
+       LOBBY VIEW
+       ════════════════════════════════════════════════════════ -->
+  <div *ngIf="currentView === 'lobby'"
+       class="flex-1 flex flex-col items-center justify-center px-5 gap-3 overflow-hidden">
+
+    <div class="text-4xl float-bounce">💎</div>
+    <h1 class="text-xl font-black text-transparent bg-clip-text
+               bg-gradient-to-r from-yellow-300 to-pink-400">
+      Diamond Heist
+    </h1>
+
+    <!-- Room code card -->
+    <div class="bg-white/10 backdrop-blur-sm border-2 border-purple-500 rounded-3xl
+                px-8 py-4 text-center w-full max-w-xs
+                shadow-lg shadow-purple-900/40">
+      <p class="text-purple-300 text-xs font-bold uppercase tracking-widest mb-1">
+        🏠 Room Code
+      </p>
+      <p class="text-4xl font-black text-yellow-400 tracking-[0.25em] font-mono">
+        {{ roomCode }}
+      </p>
+      <button
+        (click)="copyRoomCode()"
+        class="mt-2 text-purple-400 text-xs font-bold underline"
+        style="touch-action: manipulation;">
+        📋 tap to copy
+      </button>
+    </div>
+
+    <p class="text-purple-400 text-xs font-bold text-center">
+      📱 Share this code with friends!
+    </p>
+
+    <!-- Player list -->
+    <div class="w-full max-w-xs bg-white/8 border border-purple-700 rounded-2xl overflow-hidden">
+      <div class="flex items-center justify-between px-4 py-2
+                  bg-purple-900/50 border-b border-purple-700">
+        <span class="text-purple-300 text-xs font-black uppercase tracking-widest">
+          👥 Players
+        </span>
+        <span class="text-purple-400 text-xs font-bold">
+          {{ playerList.length }} joined
+        </span>
+      </div>
+
+      <div *ngFor="let player of playerList; trackBy: trackByPlayerId"
+           class="flex items-center gap-3 px-4 py-2.5
+                  border-b border-purple-800/50 last:border-0">
+        <span class="text-2xl leading-none">{{ player.emoji }}</span>
+        <span class="text-white font-bold text-sm flex-1 truncate">
+          {{ player.name }}
+        </span>
+
+        <!-- Ready / Waiting / Disconnected chip -->
+        <span *ngIf="player.disconnected"
+              class="text-[10px] font-black bg-orange-700 text-orange-200
+                     px-2 py-0.5 rounded-full flex items-center gap-0.5">
+          ⚡ Away
+        </span>
+        <ng-container *ngIf="!player.disconnected">
+          <span *ngIf="player.ready"
+                class="text-[10px] font-black bg-green-600 text-white
+                       px-2 py-0.5 rounded-full flex items-center gap-0.5">
+            ✅ Ready
+          </span>
+          <span *ngIf="!player.ready"
+                class="text-[10px] font-black bg-slate-700 text-slate-400
+                       px-2 py-0.5 rounded-full flex items-center gap-0.5">
+            ⏳ Waiting
+          </span>
+        </ng-container>
+
+        <span *ngIf="player.id === myId"
+              class="text-[10px] font-black bg-blue-600 text-white
+                     px-2 py-0.5 rounded-full">
+          YOU
+        </span>
+        <span *ngIf="player.isHost"
+              class="text-[10px] font-black bg-yellow-500 text-slate-900
+                     px-2 py-0.5 rounded-full">
+          HOST
+        </span>
+      </div>
+    </div>
+
+    <!-- ── I am Ready button (every player, including host) ── -->
+    <button
+      *ngIf="!myReady"
+      (click)="readyUp()"
+      class="btn-primary w-full max-w-xs py-4 rounded-2xl text-lg
+             bg-gradient-to-r from-green-400 to-teal-500
+             text-white shadow-lg shadow-green-900/50
+             border-b-4 border-teal-700"
+      style="touch-action: manipulation;">
+      ✅ I am Ready!
+    </button>
+
+    <!-- After clicking ready: waiting message -->
+    <div *ngIf="myReady && !isHost"
+         class="w-full max-w-xs py-3 rounded-2xl text-sm font-bold text-center
+                bg-purple-900/50 border border-purple-600 text-purple-300
+                flex items-center justify-center gap-2">
+      <span class="pulse-dot w-2 h-2 bg-purple-400 rounded-full inline-block"></span>
+      Waiting for host to start the game…
+    </div>
+
+    <!-- Host: Diamond count picker -->
+    <div *ngIf="isHost && myReady"
+         class="w-full max-w-xs bg-white/8 border border-purple-700
+                rounded-2xl px-4 py-3 flex flex-col gap-2">
+      <p class="text-purple-300 text-xs font-black uppercase tracking-widest text-center">
+        💎 Diamonds to place
+      </p>
+      <div class="flex justify-center gap-2">
+        <button
+          *ngFor="let n of diamondOptions"
+          (click)="diamondCountInput = n"
+          class="w-9 h-9 rounded-xl font-black text-sm transition-all"
+          [class.bg-yellow-400]="diamondCountInput === n"
+          [class.text-slate-900]="diamondCountInput === n"
+          [class.bg-purple-800]="diamondCountInput !== n"
+          [class.text-purple-300]="diamondCountInput !== n"
+          style="touch-action: manipulation;">
+          {{ n }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Host: Start Game button (only active when everyone is ready) -->
+    <button
+      *ngIf="isHost && myReady"
+      (click)="startGame()"
+      [disabled]="!allPlayersReady"
+      class="btn-primary w-full max-w-xs py-4 rounded-2xl text-xl
+             bg-gradient-to-r from-yellow-400 to-orange-500
+             text-white shadow-lg shadow-orange-900/50
+             border-b-4 border-orange-700
+             disabled:opacity-40 disabled:cursor-not-allowed"
+      style="touch-action: manipulation;">
+      🚀 Start Game!
+    </button>
+
+    <!-- Hint for host when Start Game is still disabled -->
+    <p *ngIf="isHost && myReady && hostHint"
+       class="text-purple-400 text-xs font-bold text-center -mt-1">
+      {{ hostHint }}
+    </p>
+
+    <p *ngIf="errorMsg"
+       class="text-red-300 text-sm font-bold text-center">
+      ⚠️ {{ errorMsg }}
+    </p>
+  </div>
+  <!-- /LOBBY VIEW -->
+
+
+  <!-- ════════════════════════════════════════════════════════
+       GAME VIEW
+       ════════════════════════════════════════════════════════ -->
+  <ng-container *ngIf="currentView === 'game'">
+
+    <!-- ── Status bar ───────────────────────────────────────── -->
+    <div class="flex-shrink-0 flex items-center justify-between px-3 py-1.5
+                bg-purple-950/80 border-b-2 border-purple-700 pt-safe">
+
+      <!-- Room code -->
+      <span class="text-yellow-400 font-black font-mono text-xs tracking-widest">
+        {{ roomCode }}
+      </span>
+
+      <!-- Turn text -->
+      <div class="flex-1 text-center">
+        <span *ngIf="isMyTurn && dicePhase === 'idle' && !showWinnerModal"
+              class="slide-in text-green-400 font-black text-xs">
+          ⭐ Your Turn!
+        </span>
+        <span *ngIf="isMyTurn && dicePhase === 'rolling'"
+              class="slide-in text-yellow-300 font-black text-xs">
+          🎲 Rolling…
+        </span>
+        <span *ngIf="isMyTurn && dicePhase === 'landed' && !showWinnerModal"
+              class="slide-in text-cyan-300 font-black text-xs">
+          Pick a direction!
+        </span>
+        <span *ngIf="!isMyTurn && !showWinnerModal"
+              class="text-purple-300 font-bold text-xs">
+          {{ currentPlayerName }}'s turn
+        </span>
+      </div>
+
+      <!-- Dice result chip (visible to all while turn is active) -->
+      <div class="w-14 text-right">
+        <span *ngIf="currentRoll > 0"
+              class="inline-flex items-center gap-0.5 bg-purple-800 rounded-full
+                     px-2 py-0.5 text-white font-black text-xs">
+          {{ getDiceFace(currentRoll) }} {{ currentRoll }}
+        </span>
+      </div>
+    </div>
+
+    <!-- ── Diamond counter strip ──────────────────────────────── -->
+    <div class="flex-shrink-0 flex items-center justify-center gap-1.5 py-1
+                bg-purple-950/60 border-b border-purple-800/60">
+      <span class="text-purple-400 text-[10px] font-black uppercase tracking-widest mr-1">
+        Diamonds
+      </span>
+      <span
+        *ngFor="let available of diamondSlots; let i = index"
+        class="text-lg leading-none transition-all duration-300"
+        [class.opacity-20]="!available"
+        [style.filter]="available ? 'drop-shadow(0 0 4px #fbbf24)' : 'none'">
+        💎
+      </span>
+    </div>
+
+    <!-- ── Diamond claimed toast ──────────────────────────────── -->
+    <div *ngIf="claimToast"
+         class="flex-shrink-0 mx-3 mt-1 px-4 py-2 rounded-2xl text-center
+                font-black text-sm text-yellow-900
+                bg-gradient-to-r from-yellow-300 to-orange-300
+                shadow-lg shadow-yellow-900/40 slide-in">
+      🎉 {{ claimToast }}
+    </div>
+
+    <!-- ── Game board ────────────────────────────────────────── -->
+    <div class="flex-1 flex items-center justify-center min-h-0 p-1.5">
+      <div class="board-container">
+        <div class="board-grid">
+          <div
+            *ngFor="let cell of flatCells; let i = index; trackBy: trackByCell"
+            class="board-cell"
+            [ngClass]="cell.extraClass">
+            {{ cell.emoji }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Controls bar ──────────────────────────────────────── -->
+    <div class="flex-shrink-0 bg-purple-950/90 border-t-2 border-purple-700 pb-safe">
+
+      <div class="flex items-center justify-between px-3 py-2 gap-2">
+
+        <!-- Left: mini player legend -->
+        <div class="flex flex-col gap-0.5" style="min-width: 72px; max-width: 72px;">
+          <div *ngFor="let player of playerList; trackBy: trackByPlayerId"
+               class="flex items-center gap-1 text-[10px] font-bold leading-tight"
+               [class.text-green-300]="player.id === currentPlayerId"
+               [class.text-purple-500]="player.id !== currentPlayerId">
+            <span class="text-base leading-none">{{ player.emoji }}</span>
+            <span class="truncate">{{ player.name }}</span>
+            <span *ngIf="player.id === currentPlayerId"
+                  class="text-[8px] text-green-400 flex-shrink-0">▶</span>
+          </div>
+        </div>
+
+        <!-- Centre: controls -->
+        <div class="flex-1 flex flex-col items-center justify-center gap-1.5">
+
+          <!-- ── IDLE: Big Roll Dice button ── -->
+          <button
+            *ngIf="canRoll"
+            (click)="rollDice()"
+            class="btn-primary px-7 py-3.5 rounded-2xl text-base
+                   bg-gradient-to-br from-yellow-400 via-orange-400 to-pink-500
+                   text-white font-black shadow-xl shadow-orange-900/50
+                   border-b-4 border-orange-600"
+            style="touch-action: manipulation;">
+            🎲 Roll Dice!
+          </button>
+
+          <!-- ── ROLLING: Animated dice ── -->
+          <div *ngIf="isMyTurn && dicePhase === 'rolling'"
+               class="flex flex-col items-center gap-1.5">
+            <div class="dice-box dice-rolling">
+              {{ getDiceFace(rollingDisplay) }}
+            </div>
+            <span class="text-yellow-300 font-black text-xs tracking-wide">
+              Rolling…
+            </span>
+          </div>
+
+          <!-- ── LANDED: Result + D-pad ── -->
+          <div *ngIf="dicePhase === 'landed' && isMyTurn"
+               class="flex flex-col items-center gap-2">
+
+            <!-- Dice result card -->
+            <div class="flex items-center gap-2">
+              <div class="dice-box dice-landed">
+                {{ getDiceFace(currentRoll) }}
+              </div>
+              <div class="text-left">
+                <p class="text-yellow-300 font-black text-sm leading-none">
+                  You rolled {{ currentRoll }}!
+                </p>
+                <p class="text-purple-300 font-bold text-xs mt-0.5">
+                  Pick a direction ↓
+                </p>
+              </div>
+            </div>
+
+            <!-- D-pad -->
+            <div class="dpad" [class.opacity-40]="isMoving">
+              <!-- Row 1 -->
+              <div></div>
+              <button class="dpad-btn"
+                      [disabled]="isMoving"
+                      (click)="move('UP')"
+                      style="touch-action: manipulation;"
+                      aria-label="Move up">⬆</button>
+              <div></div>
+              <!-- Row 2 -->
+              <button class="dpad-btn"
+                      [disabled]="isMoving"
+                      (click)="move('LEFT')"
+                      style="touch-action: manipulation;"
+                      aria-label="Move left">⬅</button>
+              <div class="flex items-center justify-center rounded-lg
+                          bg-purple-800 border border-purple-600
+                          text-yellow-300 font-black text-sm">
+                {{ currentRoll }}
+              </div>
+              <button class="dpad-btn"
+                      [disabled]="isMoving"
+                      (click)="move('RIGHT')"
+                      style="touch-action: manipulation;"
+                      aria-label="Move right">➡</button>
+              <!-- Row 3 -->
+              <div></div>
+              <button class="dpad-btn"
+                      [disabled]="isMoving"
+                      (click)="move('DOWN')"
+                      style="touch-action: manipulation;"
+                      aria-label="Move down">⬇</button>
+              <div></div>
+            </div>
+
+          </div>
+
+          <!-- ── NOT YOUR TURN ── -->
+          <div *ngIf="!isMyTurn && !showWinnerModal"
+               class="flex flex-col items-center gap-1">
+            <!-- Show other player's dice result while they decide -->
+            <div *ngIf="currentRoll > 0 && stepsRemaining > 0"
+                 class="dice-box" style="width:48px;height:48px;font-size:1.8rem;">
+              {{ getDiceFace(currentRoll) }}
+            </div>
+            <span class="text-purple-400 font-bold text-xs">
+              ⏳ {{ currentPlayerName }} is playing…
+            </span>
+          </div>
+
+        </div>
+
+        <!-- Right spacer (balances legend) -->
+        <div style="min-width: 72px; max-width: 72px;"></div>
+
+      </div>
+
+      <!-- Error toast -->
+      <div *ngIf="errorMsg"
+           class="mx-3 mb-1 px-3 py-1.5 bg-red-950/80 border border-red-600
+                  rounded-xl text-red-300 font-bold text-xs text-center">
+        ⚠️ {{ errorMsg }}
+      </div>
+    </div>
+
+  </ng-container>
+  <!-- /GAME VIEW -->
+
+
+  <!-- ════════════════════════════════════════════════════════
+       WINNER OVERLAY
+       Fires on ALL screens the instant any player lands on 💎
+       ════════════════════════════════════════════════════════ -->
+  <div *ngIf="showWinnerModal"
+       class="fixed inset-0 bg-black/85 backdrop-blur-md
+              flex items-center justify-center z-50 p-4 overflow-y-auto">
+
+    <div class="winner-modal flex flex-col items-center gap-4 text-center
+                bg-gradient-to-b from-purple-900 to-indigo-950
+                border-4 border-yellow-400 rounded-[2rem]
+                px-6 py-6 max-w-xs w-full
+                shadow-2xl shadow-yellow-500/30">
+
+      <!-- Trophy -->
+      <div class="text-6xl" style="animation: floatBounce 1s ease-in-out infinite;">🏆</div>
+
+      <div>
+        <p class="text-purple-300 text-xs font-black uppercase tracking-[0.2em] mb-1">
+          Game Over!
+        </p>
+        <h2 class="text-2xl font-black text-transparent bg-clip-text
+                   bg-gradient-to-r from-yellow-300 to-orange-400">
+          All Diamonds Claimed!
+        </h2>
+      </div>
+
+      <!-- Winners podium list -->
+      <div class="w-full flex flex-col gap-2">
+        <div
+          *ngFor="let w of winners; trackBy: trackByWinner"
+          class="flex items-center gap-3 px-4 py-2.5 rounded-2xl"
+          [class.bg-yellow-400]="w.place === 1"
+          [class.text-slate-900]="w.place === 1"
+          [class.bg-slate-400]="w.place === 2"
+          [class.bg-orange-700]="w.place === 3"
+          [class.bg-purple-800]="w.place > 3">
+          <span class="text-xl font-black w-8 flex-shrink-0">
+            {{ w.place === 1 ? '🥇' : w.place === 2 ? '🥈' : w.place === 3 ? '🥉' : '#' + w.place }}
+          </span>
+          <span class="text-lg leading-none">{{ w.emoji }}</span>
+          <span class="font-black text-sm flex-1 text-left truncate">{{ w.name }}</span>
+          <span *ngIf="w.id === myId"
+                class="text-[10px] font-black bg-white/30 px-2 py-0.5 rounded-full flex-shrink-0">
+            YOU
+          </span>
+        </div>
+      </div>
+
+      <!-- Personal result badge -->
+      <div *ngIf="myWinPlace > 0"
+           class="px-5 py-2 bg-yellow-400/20 border-2 border-yellow-400
+                  rounded-full text-yellow-300 font-black text-sm">
+        🥳 You finished {{ placeLabel }}!
+      </div>
+      <div *ngIf="myWinPlace === 0"
+           class="px-5 py-2 bg-purple-800/60 border border-purple-600
+                  rounded-full text-purple-300 font-bold text-sm">
+        Better luck next time! 💪
+      </div>
+
+      <!-- Play Again -->
+      <button
+        (click)="playAgain()"
+        class="btn-primary w-full py-4 rounded-2xl text-xl
+               bg-gradient-to-r from-green-400 to-emerald-500
+               text-white shadow-xl shadow-green-900/50
+               border-b-4 border-emerald-700"
+        style="touch-action: manipulation;">
+        🔄 Play Again!
+      </button>
+
+      <p class="text-purple-500 text-xs font-bold">
+        Same room code · everyone returns to lobby
+      </p>
+    </div>
+
+  </div>
+  <!-- /WINNER OVERLAY -->
+
+</div>
