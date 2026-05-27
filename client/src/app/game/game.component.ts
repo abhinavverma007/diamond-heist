@@ -38,6 +38,18 @@ export interface Winner {
   emoji: string;
 }
 
+export interface Box {
+  id: number;
+  pos: Point;
+}
+
+export interface SessionEntry {
+  playerId: string;
+  name: string;
+  emoji: string;
+  score: number;
+}
+
 export interface CellData {
   emoji: string;
   extraClass: string;
@@ -88,6 +100,18 @@ export class GameComponent implements OnInit, OnDestroy {
   currentPlayerId = '';
   currentRoll = 0;
   stepsRemaining = 0;
+
+  // ── Mystery boxes ────────────────────────────────────────────────────────────
+  boxes: Box[] = [];
+
+  // ── Session leaderboard ──────────────────────────────────────────────────────
+  sessionLeaderboard: SessionEntry[] = [];
+  gamesPlayed = 0;
+
+  // ── Box reveal overlay ───────────────────────────────────────────────────────
+  isBoxRevealOpen = false;
+  boxRevealData: { emoji: string; label: string; pointsDelta: number; openerName: string } | null = null;
+  private boxRevealTimer: ReturnType<typeof setTimeout> | null = null;
 
   // ── Dice animation state ─────────────────────────────────────────────────────
   // 'idle'    → Roll button visible
@@ -140,6 +164,7 @@ export class GameComponent implements OnInit, OnDestroy {
     this.destroy$.next();
     this.destroy$.complete();
     if (this.claimToastTimer) clearTimeout(this.claimToastTimer);
+    if (this.boxRevealTimer) clearTimeout(this.boxRevealTimer);
     this.socketService.disconnect();
   }
 
@@ -158,6 +183,13 @@ export class GameComponent implements OnInit, OnDestroy {
       const dIdx = this.diamond.y * G + this.diamond.x;
       if (dIdx >= 0 && dIdx < G * G) {
         cells[dIdx] = { emoji: '💎', extraClass: 'board-cell--diamond' };
+      }
+    }
+
+    for (const box of this.boxes) {
+      const bIdx = box.pos.y * G + box.pos.x;
+      if (bIdx >= 0 && bIdx < G * G && cells[bIdx].emoji === '') {
+        cells[bIdx] = { emoji: '🎁', extraClass: 'board-cell--box' };
       }
     }
 
@@ -277,9 +309,17 @@ export class GameComponent implements OnInit, OnDestroy {
   isCustomizerOpen = false;
 
   readonly EMOJI_OPTIONS = [
+    // Animals
     '🦁','🐯','🦊','🐼','🦝','🐺','🦄','🦈',
+    // Haha / fun faces
+    '😂','🤣','😆','😄','😁','🤪','😜','🥳',
+    // Characters
     '👻','💀','🤖','👽','🎃','🥷','🦸','🤡',
-    '🎮','🚀','🏆','🎯','⚡','🎲','🃏','🎪',
+    // Games & misc
+    '🎮','🚀','🏆','🎯','⚡','🃏','🎪','🎠',
+    // Dice faces 1–6
+    '⚀','⚁','⚂','⚃','⚄','⚅','🎲','🎰',
+    // Food
     '🍕','🌮','🍜','🍩','🧁','🍦','🍎','🍓',
   ];
 
@@ -342,12 +382,14 @@ export class GameComponent implements OnInit, OnDestroy {
     turnIndex: number,
     currentPlayerId: string,
     turnChanged: boolean,
+    onComplete?: () => void,
   ): void {
     const from = this.players[movingId];
     const to   = finalPlayers[movingId];
 
     if (!from || !to) {
       this.applyMoveState(finalPlayers, stepsRemaining, turnIndex, currentPlayerId, turnChanged);
+      onComplete?.();
       return;
     }
 
@@ -357,6 +399,7 @@ export class GameComponent implements OnInit, OnDestroy {
 
     if (totalSteps === 0) {
       this.applyMoveState(finalPlayers, stepsRemaining, turnIndex, currentPlayerId, turnChanged);
+      onComplete?.();
       return;
     }
 
@@ -380,6 +423,7 @@ export class GameComponent implements OnInit, OnDestroy {
       } else {
         this.hoppingPlayerId = '';
         this.applyMoveState(finalPlayers, stepsRemaining, turnIndex, currentPlayerId, turnChanged);
+        onComplete?.();
       }
     };
 
@@ -470,7 +514,7 @@ export class GameComponent implements OnInit, OnDestroy {
       });
 
     this.socketService
-      .on<{ players: Record<string, Player>; playerOrder: string[]; diamond: Point; diamondsRemaining: number; turnIndex: number; currentPlayerId: string }>('game_started')
+      .on<{ players: Record<string, Player>; playerOrder: string[]; diamond: Point; diamondsRemaining: number; turnIndex: number; currentPlayerId: string; boxes: Box[]; sessionLeaderboard: SessionEntry[]; gamesPlayed: number }>('game_started')
       .pipe(takeUntil(this.destroy$))
       .subscribe(data => {
         this.players = data.players; this.playerOrder = data.playerOrder;
@@ -479,6 +523,10 @@ export class GameComponent implements OnInit, OnDestroy {
         this.currentPlayerId = data.currentPlayerId;
         this.stepsRemaining = 0; this.showWinnerModal = false;
         this.isMoving = false; this.myReady = false; this.currentView = 'game';
+        this.boxes = data.boxes ?? [];
+        this.sessionLeaderboard = data.sessionLeaderboard ?? [];
+        this.gamesPlayed = data.gamesPlayed ?? 0;
+        this.isBoxRevealOpen = false;
         this.resetDiceState();
         this.refreshGrid();
         if (data.currentPlayerId === this.myId) this.sound.playYourTurn();
@@ -516,12 +564,13 @@ export class GameComponent implements OnInit, OnDestroy {
       });
 
     this.socketService
-      .on<{ winner: Winner; diamond: Point | null; remainingCount: number; players: Record<string, Player>; stepsRemaining: number; turnIndex: number; currentPlayerId: string; turnChanged: boolean; gameOver: boolean }>('diamond_claimed')
+      .on<{ winner: Winner; diamond: Point | null; remainingCount: number; players: Record<string, Player>; stepsRemaining: number; turnIndex: number; currentPlayerId: string; turnChanged: boolean; gameOver: boolean; sessionLeaderboard: SessionEntry[] }>('diamond_claimed')
       .pipe(takeUntil(this.destroy$))
       .subscribe(data => {
         const movingId = this.currentPlayerId;
         this.diamond = data.diamond;
         this.diamondsRemaining = data.remainingCount;
+        if (data.sessionLeaderboard) this.sessionLeaderboard = data.sessionLeaderboard;
 
         this.sound.playDiamondClaim();
         if (this.claimToastTimer) clearTimeout(this.claimToastTimer);
@@ -534,9 +583,11 @@ export class GameComponent implements OnInit, OnDestroy {
       });
 
     this.socketService
-      .on<{ winners: Winner[]; players: Record<string, Player> }>('game_won')
+      .on<{ winners: Winner[]; players: Record<string, Player>; sessionLeaderboard: SessionEntry[]; gamesPlayed: number }>('game_won')
       .pipe(takeUntil(this.destroy$))
       .subscribe(data => {
+        if (data.sessionLeaderboard) this.sessionLeaderboard = data.sessionLeaderboard;
+        if (data.gamesPlayed) this.gamesPlayed = data.gamesPlayed;
         if (this.hoppingPlayerId) {
           this.pendingWin = data;
         } else {
@@ -551,7 +602,7 @@ export class GameComponent implements OnInit, OnDestroy {
       });
 
     this.socketService
-      .on<{ players: Record<string, Player>; playerOrder: string[]; roomCode: string }>('game_reset')
+      .on<{ players: Record<string, Player>; playerOrder: string[]; roomCode: string; sessionLeaderboard: SessionEntry[]; gamesPlayed: number }>('game_reset')
       .pipe(takeUntil(this.destroy$))
       .subscribe(data => {
         this.players = data.players; this.playerOrder = data.playerOrder;
@@ -559,28 +610,47 @@ export class GameComponent implements OnInit, OnDestroy {
         this.winners = []; this.diamond = null; this.diamondsRemaining = 0;
         this.stepsRemaining = 0; this.isMoving = false;
         this.myReady = false; this.diamondCountInput = 1;
+        this.boxes = [];
+        if (data.sessionLeaderboard) this.sessionLeaderboard = data.sessionLeaderboard;
+        if (data.gamesPlayed) this.gamesPlayed = data.gamesPlayed;
+        this.isBoxRevealOpen = false;
         this.resetDiceState();
         this.cdr.markForCheck();
       });
 
     this.socketService
-      .on<{ players: Record<string, Player>; playerOrder: string[] }>('player_left')
+      .on<{ players: Record<string, Player>; playerOrder: string[]; turnIndex: number; currentPlayerId: string; sessionLeaderboard: SessionEntry[] }>('player_left')
       .pipe(takeUntil(this.destroy$))
       .subscribe(data => {
         this.players = data.players; this.playerOrder = data.playerOrder;
         if (this.players[this.myId]?.isHost) this.isHost = true;
-        if (this.currentView === 'game') this.refreshGrid();
+        if (data.sessionLeaderboard) this.sessionLeaderboard = data.sessionLeaderboard;
+        if (this.currentView === 'game') {
+          // Sync turn state so no one is stuck waiting for the departed player
+          if (data.turnIndex !== undefined) this.turnIndex = data.turnIndex;
+          if (data.currentPlayerId) {
+            this.currentPlayerId = data.currentPlayerId;
+            if (data.currentPlayerId === this.myId) {
+              this.resetDiceState();
+              this.sound.playYourTurn();
+            }
+          }
+          this.refreshGrid();
+        }
         this.cdr.markForCheck();
       });
 
     // ── Reconnected: restore full state after socket drop ────────────────────
     this.socketService
-      .on<{ playerId: string; roomCode: string; isHost: boolean; players: Record<string, Player>; playerOrder: string[]; gameStarted: boolean; diamond: Point | null; diamondsRemaining: number; turnIndex: number; currentPlayerId: string; stepsRemaining: number; currentRoll: number; winners: Winner[] }>('reconnected')
+      .on<{ playerId: string; roomCode: string; isHost: boolean; players: Record<string, Player>; playerOrder: string[]; gameStarted: boolean; diamond: Point | null; diamondsRemaining: number; turnIndex: number; currentPlayerId: string; stepsRemaining: number; currentRoll: number; winners: Winner[]; boxes: Box[]; sessionLeaderboard: SessionEntry[]; gamesPlayed: number }>('reconnected')
       .pipe(takeUntil(this.destroy$))
       .subscribe(data => {
         this.myId = data.playerId; this.roomCode = data.roomCode; this.isHost = data.isHost;
         this.players = data.players; this.playerOrder = data.playerOrder;
         this.winners = data.winners; this.isBusy = false;
+        this.boxes = data.boxes ?? [];
+        this.sessionLeaderboard = data.sessionLeaderboard ?? [];
+        this.gamesPlayed = data.gamesPlayed ?? 0;
 
         if (data.gameStarted) {
           this.diamond = data.diamond; this.diamondsRemaining = data.diamondsRemaining;
@@ -596,6 +666,36 @@ export class GameComponent implements OnInit, OnDestroy {
           this.currentView = 'lobby';
         }
         this.cdr.markForCheck();
+      });
+
+    this.socketService
+      .on<{ boxId: number; outcome: string; label: string; emoji: string; pointsDelta: number; openerName: string; openerEmoji: string; players: Record<string, Player>; stepsRemaining: number; turnIndex: number; currentPlayerId: string; currentPlayerName: string; turnChanged: boolean; sessionLeaderboard: SessionEntry[] }>('box_opened')
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(data => {
+        const movingId = this.currentPlayerId;
+        this.boxes = this.boxes.filter(b => b.id !== data.boxId);
+        this.sessionLeaderboard = data.sessionLeaderboard ?? this.sessionLeaderboard;
+
+        // Wait for hop animation to finish, THEN show the reveal modal for 5 s
+        this.animateMove(
+          movingId, data.players, data.stepsRemaining,
+          data.turnIndex, data.currentPlayerId, data.turnChanged,
+          () => {
+            if (this.boxRevealTimer) clearTimeout(this.boxRevealTimer);
+            this.boxRevealData = {
+              emoji: data.emoji,
+              label: data.label,
+              pointsDelta: data.pointsDelta,
+              openerName: data.openerName,
+            };
+            this.isBoxRevealOpen = true;
+            this.cdr.markForCheck();
+            this.boxRevealTimer = setTimeout(() => {
+              this.isBoxRevealOpen = false;
+              this.cdr.markForCheck();
+            }, 5000);
+          },
+        );
       });
 
     this.socketService.on<{ message: string }>('reconnect_failed')
@@ -744,6 +844,8 @@ export class GameComponent implements OnInit, OnDestroy {
     this.diamond = null; this.diamondsRemaining = 0;
     this.stepsRemaining = 0; this.isMoving = false;
     this.hoppingPlayerId = '';
+    this.boxes = []; this.sessionLeaderboard = []; this.gamesPlayed = 0;
+    this.isBoxRevealOpen = false; this.boxRevealData = null;
     this.resetDiceState();
     this.refreshGrid();
     this.cdr.markForCheck();
