@@ -27,6 +27,8 @@ interface Player {
   name: string;
   x: number;
   y: number;
+  startX: number; // perimeter start position for warp_back box outcome
+  startY: number;
   isHost: boolean;
   color: string;
   emoji: string;
@@ -36,6 +38,21 @@ interface Player {
   disconnected: boolean;
   won: boolean;
   reactionAt: number; // unix ms – for rate limiting reactions
+}
+
+type BoxOutcome = 'warp_back' | 'points_jackpot' | 'dud' | 'bomb';
+
+interface Box {
+  id: number;
+  pos: Point;
+  // outcome is randomized at open-time, not stored
+}
+
+interface SessionEntry {
+  playerId: string;
+  name: string;
+  emoji: string;
+  score: number;
 }
 
 interface Point {
@@ -60,14 +77,25 @@ interface RoomState {
   stepsRemaining: number;
   gameStarted: boolean;
   winners: Winner[];
+  boxes: Box[];
+  sessionScores: Record<string, number>; // keyed by sessionId
+  gamesPlayed: number;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const ALLOWED_EMOJIS = new Set([
+  // Animals
   '🦁','🐯','🦊','🐼','🦝','🐺','🦄','🦈',
+  // Haha / fun faces
+  '😂','🤣','😆','😄','😁','🤪','😜','🥳',
+  // Characters
   '👻','💀','🤖','👽','🎃','🥷','🦸','🤡',
-  '🎮','🚀','🏆','🎯','⚡','🎲','🃏','🎪',
+  // Games & misc
+  '🎮','🚀','🏆','🎯','⚡','🃏','🎪','🎠',
+  // Dice faces 1–6
+  '⚀','⚁','⚂','⚃','⚄','⚅','🎲','🎰',
+  // Food
   '🍕','🌮','🍜','🍩','🧁','🍦','🍎','🍓',
 ]);
 
@@ -146,7 +174,127 @@ function assignStartPositions(room: RoomState): void {
     const periIdx = Math.floor((idx * perimeter.length) / total);
     p.x = perimeter[periIdx].x;
     p.y = perimeter[periIdx].y;
+    p.startX = p.x;
+    p.startY = p.y;
   });
+}
+
+// ── Box zone-spread spawning ──────────────────────────────────────────────────
+// Divides the 21×21 grid into a 4-col × 3-row grid of 12 zones.
+// Picks 10 random zones and places one box per zone, avoiding the diamond
+// and all player starting positions. Outcomes are weighted.
+const BOX_OUTCOME_POOL: BoxOutcome[] = [
+  'warp_back',   'warp_back',   'warp_back',
+  'points_jackpot', 'points_jackpot',
+  'dud',         'dud',         'dud',
+  'bomb',        'bomb',
+];
+
+let boxIdCounter = 0;
+
+function spawnBoxes(room: RoomState): void {
+  const ZONE_COLS = 4;
+  const ZONE_ROWS = 3;
+  const zoneW = Math.floor(GRID_SIZE / ZONE_COLS); // ~5
+  const zoneH = Math.floor(GRID_SIZE / ZONE_ROWS); // ~7
+
+  // Forbidden cells: diamond + all player starting positions
+  const forbidden = new Set<string>();
+  if (room.diamond) forbidden.add(`${room.diamond.x},${room.diamond.y}`);
+  room.playerOrder.forEach(id => {
+    const p = room.players[id];
+    if (p) forbidden.add(`${p.x},${p.y}`);
+  });
+
+  // Shuffle zone indices [0..11], pick first 10
+  const zones = Array.from({ length: ZONE_COLS * ZONE_ROWS }, (_, i) => i);
+  for (let i = zones.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [zones[i], zones[j]] = [zones[j], zones[i]];
+  }
+
+  const boxes: Box[] = [];
+  for (const zoneIdx of zones.slice(0, 10)) {
+    const col = zoneIdx % ZONE_COLS;
+    const row = Math.floor(zoneIdx / ZONE_COLS);
+    const x0 = col * zoneW;
+    const y0 = row * zoneH;
+
+    for (let attempt = 0; attempt < 30; attempt++) {
+      const x = x0 + Math.floor(Math.random() * zoneW);
+      const y = y0 + Math.floor(Math.random() * zoneH);
+      const key = `${x},${y}`;
+      if (!forbidden.has(key)) {
+        forbidden.add(key);
+        boxes.push({ id: boxIdCounter++, pos: { x, y } });
+        break;
+      }
+    }
+  }
+  room.boxes = boxes;
+}
+
+// ── Open a box and apply its effect ──────────────────────────────────────────
+function openBox(
+  room: RoomState,
+  playerId: string,
+  box: Box,
+): { outcome: BoxOutcome; label: string; emoji: string; pointsDelta: number } {
+  const player = room.players[playerId];
+  if (!player) return { outcome: 'dud', label: 'Nothing!', emoji: '💨', pointsDelta: 0 };
+
+  // Remove from board immediately
+  room.boxes = room.boxes.filter(b => b.id !== box.id);
+
+  // Randomize outcome at open-time so each box is a fresh roll
+  const outcome = BOX_OUTCOME_POOL[Math.floor(Math.random() * BOX_OUTCOME_POOL.length)];
+
+  // Base 15 pts for opening any box
+  const sid = player.sessionId;
+  room.sessionScores[sid] = (room.sessionScores[sid] ?? 0) + 15;
+  let pointsDelta = 15;
+
+  let label = '';
+  let emoji = '';
+
+  switch (outcome) {
+    case 'warp_back':
+      player.x = player.startX;
+      player.y = player.startY;
+      label = 'Warped back to start!';
+      emoji = '↩️';
+      break;
+    case 'points_jackpot':
+      room.sessionScores[sid] += 50;
+      pointsDelta += 50;
+      label = '+50 Points Jackpot!';
+      emoji = '💸';
+      break;
+    case 'bomb':
+      room.sessionScores[sid] = Math.max(0, (room.sessionScores[sid]) - 10);
+      pointsDelta -= 10;
+      label = '-10 Points! Ouch!';
+      emoji = '💣';
+      break;
+    case 'dud':
+    default:
+      label = 'Nothing… 😅';
+      emoji = '💨';
+      break;
+  }
+  return { outcome, label, emoji, pointsDelta };
+}
+
+// ── Build sorted session leaderboard for client payloads ─────────────────────
+function getSessionLeaderboard(room: RoomState): SessionEntry[] {
+  return room.playerOrder
+    .map(id => {
+      const p = room.players[id];
+      if (!p) return null;
+      return { playerId: id, name: p.name, emoji: p.emoji, score: room.sessionScores[p.sessionId] ?? 0 };
+    })
+    .filter((e): e is SessionEntry => !!e)
+    .sort((a, b) => b.score - a.score);
 }
 
 function spawnDiamond(players: Record<string, Player>): Point {
@@ -166,6 +314,7 @@ function removePlayerFromRoom(roomCode: string, playerId: string): void {
   if (!room || !room.players[playerId]) return;
 
   const wasHost = room.players[playerId].isHost;
+  const leavingIdx = room.playerOrder.indexOf(playerId);
   delete room.players[playerId];
   room.playerOrder = room.playerOrder.filter(id => id !== playerId);
 
@@ -181,9 +330,24 @@ function removePlayerFromRoom(roomCode: string, playerId: string): void {
     room.players[id].color = PLAYER_COLORS[idx % PLAYER_COLORS.length];
   });
 
+  // Clamp turnIndex so it never goes out of bounds after the player list shrinks.
+  // If the leaving player held the turn, the index now points to the next player
+  // naturally (same index, shorter array). If it was the last slot, wrap to 0.
+  if (room.gameStarted) {
+    if (room.turnIndex >= room.playerOrder.length) {
+      room.turnIndex = 0;
+    } else if (leavingIdx < room.turnIndex) {
+      // A player before the current turn was removed – shift index back by 1
+      room.turnIndex = Math.max(0, room.turnIndex - 1);
+    }
+  }
+
   io.to(roomCode).emit('player_left', {
     players: room.players,
     playerOrder: room.playerOrder,
+    turnIndex: room.turnIndex,
+    currentPlayerId: room.playerOrder[room.turnIndex] ?? '',
+    sessionLeaderboard: getSessionLeaderboard(room),
   });
 }
 
@@ -214,8 +378,7 @@ io.on('connection', (socket: Socket) => {
     const player: Player = {
       id: socket.id,
       name,
-      x: 0,
-      y: 0,
+      x: 0, y: 0, startX: 0, startY: 0,
       isHost: true,
       color: PLAYER_COLORS[0],
       emoji: PLAYER_EMOJIS[0],
@@ -237,6 +400,9 @@ io.on('connection', (socket: Socket) => {
       stepsRemaining: 0,
       gameStarted: false,
       winners: [],
+      boxes: [],
+      sessionScores: {},
+      gamesPlayed: 0,
     };
 
     socket.join(roomCode);
@@ -272,8 +438,7 @@ io.on('connection', (socket: Socket) => {
     const player: Player = {
       id: socket.id,
       name: name || `Player ${idx + 1}`,
-      x: 0,
-      y: 0,
+      x: 0, y: 0, startX: 0, startY: 0,
       isHost: false,
       color: PLAYER_COLORS[idx % PLAYER_COLORS.length],
       emoji: PLAYER_EMOJIS[idx % PLAYER_EMOJIS.length],
@@ -341,6 +506,7 @@ io.on('connection', (socket: Socket) => {
     room.playerOrder.forEach(id => { if (room.players[id]) room.players[id].won = false; });
     room.diamond = spawnDiamond(room.players);
     room.diamondsRemaining = count;
+    spawnBoxes(room);
 
     const firstId = room.playerOrder[0];
 
@@ -352,6 +518,9 @@ io.on('connection', (socket: Socket) => {
       turnIndex: room.turnIndex,
       currentPlayerId: firstId,
       currentPlayerName: room.players[firstId].name,
+      boxes: room.boxes.map(b => ({ id: b.id, pos: b.pos })),
+      sessionLeaderboard: getSessionLeaderboard(room),
+      gamesPlayed: room.gamesPlayed,
     });
 
     console.log(`[Room ${roomCode}] Game started – ${count} diamond(s) stacked at (${room.diamond.x},${room.diamond.y})`);
@@ -466,6 +635,11 @@ io.on('connection', (socket: Socket) => {
       room.winners.push(winner);
       player.won = true;
 
+      // Award place-based session points
+      const sid = player.sessionId;
+      const pts = place === 1 ? 100 : place === 2 ? 70 : 50;
+      room.sessionScores[sid] = (room.sessionScores[sid] ?? 0) + pts;
+
       const gameOver = room.diamondsRemaining === 0;
       if (gameOver) { room.diamond = null; room.gameStarted = false; }
 
@@ -482,14 +656,54 @@ io.on('connection', (socket: Socket) => {
         currentPlayerId: nextId,
         turnChanged: true,
         gameOver,
+        sessionLeaderboard: getSessionLeaderboard(room),
       });
 
       if (gameOver) {
-        io.to(roomCode).emit('game_won', { winners: room.winners, players: room.players });
+        // Award participation points to all connected players
+        room.playerOrder.forEach(id => {
+          const p = room.players[id];
+          if (p && !p.disconnected) {
+            room.sessionScores[p.sessionId] = (room.sessionScores[p.sessionId] ?? 0) + 10;
+          }
+        });
+        room.gamesPlayed++;
+        io.to(roomCode).emit('game_won', {
+          winners: room.winners,
+          players: room.players,
+          sessionLeaderboard: getSessionLeaderboard(room),
+          gamesPlayed: room.gamesPlayed,
+        });
         console.log(`[Room ${roomCode}] All diamonds claimed. Winners: ${room.winners.map(w => w.name).join(', ')}`);
       } else {
         console.log(`[Room ${roomCode}] "${player.name}" claimed diamond #${place} – ${room.diamondsRemaining} left on cell`);
       }
+      return;
+    }
+
+    // ── Check if player landed on a mystery box ──────────────────────────────
+    const hitBox = room.boxes.find(b => b.pos.x === nx && b.pos.y === ny);
+    if (hitBox) {
+      const result = openBox(room, socket.id, hitBox);
+      advanceTurn(room);
+      const nextId = room.playerOrder[room.turnIndex];
+      io.to(roomCode).emit('box_opened', {
+        boxId: hitBox.id,
+        outcome: result.outcome,
+        label: result.label,
+        emoji: result.emoji,
+        pointsDelta: result.pointsDelta,
+        openerName: player.name,
+        openerEmoji: player.emoji,
+        players: room.players,
+        stepsRemaining: 0,
+        turnIndex: room.turnIndex,
+        currentPlayerId: nextId,
+        currentPlayerName: room.players[nextId]?.name ?? '',
+        turnChanged: true,
+        sessionLeaderboard: getSessionLeaderboard(room),
+      });
+      console.log(`[Room ${roomCode}] "${player.name}" opened box → ${result.outcome} (${result.label})`);
       return;
     }
 
@@ -520,6 +734,7 @@ io.on('connection', (socket: Socket) => {
     room.turnIndex = 0;
     room.diamond = null;
     room.diamondsRemaining = 0;
+    room.boxes = []; // cleared here; new boxes spawn when start_game is called
 
     assignStartPositions(room);
     room.playerOrder.forEach(id => {
@@ -533,6 +748,8 @@ io.on('connection', (socket: Socket) => {
       players: room.players,
       playerOrder: room.playerOrder,
       roomCode,
+      sessionLeaderboard: getSessionLeaderboard(room),
+      gamesPlayed: room.gamesPlayed,
     });
 
     console.log(`[Room ${roomCode}] Reset – back to lobby`);
@@ -646,6 +863,9 @@ io.on('connection', (socket: Socket) => {
       stepsRemaining: room.stepsRemaining,
       currentRoll: room.currentRoll,
       winners: room.winners,
+      boxes: room.boxes.map(b => ({ id: b.id, pos: b.pos })),
+      sessionLeaderboard: getSessionLeaderboard(room),
+      gamesPlayed: room.gamesPlayed,
     });
 
     socket.to(roomCode).emit('player_reconnected', {
