@@ -156,10 +156,15 @@
       <div *ngFor="let player of playerList; trackBy: trackByPlayerId"
            class="flex items-center gap-3 px-4 py-2.5
                   border-b border-purple-800/50 last:border-0">
-        <span class="text-2xl leading-none">{{ player.emoji }}</span>
-        <span class="text-white font-bold text-sm flex-1 truncate">
-          {{ player.name }}
-        </span>
+
+        <span class="text-2xl leading-none flex-shrink-0">{{ player.emoji }}</span>
+
+        <!-- Name + tagline stacked -->
+        <div class="flex-1 min-w-0">
+          <div class="text-white font-bold text-sm truncate">{{ player.name }}</div>
+          <div *ngIf="player.tagline"
+               class="text-purple-300 text-[10px] italic truncate">"{{ player.tagline }}"</div>
+        </div>
 
         <!-- Ready / Waiting / Disconnected chip -->
         <span *ngIf="player.disconnected"
@@ -260,6 +265,16 @@
        class="text-red-300 text-sm font-bold text-center">
       ⚠️ {{ errorMsg }}
     </p>
+
+    <!-- Leave Room -->
+    <button
+      (click)="leaveRoom()"
+      class="w-full max-w-xs py-2.5 rounded-2xl text-sm font-black
+             bg-transparent border-2 border-red-700 text-red-400
+             hover:bg-red-900/30 transition-colors"
+      style="touch-action: manipulation;">
+      🚪 Leave Room
+    </button>
   </div>
   <!-- /LOBBY VIEW -->
 
@@ -298,29 +313,93 @@
         </span>
       </div>
 
-      <!-- Dice result chip (visible to all while turn is active) -->
-      <div class="w-14 text-right">
+      <!-- Sound/haptic toggles + dice chip + Leave -->
+      <div class="flex items-center gap-1.5">
         <span *ngIf="currentRoll > 0"
               class="inline-flex items-center gap-0.5 bg-purple-800 rounded-full
                      px-2 py-0.5 text-white font-black text-xs">
           {{ getDiceFace(currentRoll) }} {{ currentRoll }}
         </span>
+        <button
+          (click)="toggleMute()"
+          class="text-sm leading-none bg-transparent border-0 p-0.5"
+          style="touch-action: manipulation;"
+          [title]="isMuted ? 'Unmute' : 'Mute'">
+          {{ isMuted ? '🔇' : '🔊' }}
+        </button>
+        <button
+          (click)="leaveRoom()"
+          class="text-[10px] font-black text-red-400 border border-red-700
+                 rounded-full px-2 py-0.5 bg-transparent leading-tight"
+          style="touch-action: manipulation;"
+          title="Leave room">
+          ✕ Leave
+        </button>
       </div>
     </div>
 
-    <!-- ── Diamond counter strip ──────────────────────────────── -->
-    <div class="flex-shrink-0 flex items-center justify-center gap-1.5 py-1
+    <!-- ── Diamond counter strip + reaction trigger ────────────── -->
+    <div class="flex-shrink-0 relative flex items-center justify-between px-3 py-1
                 bg-purple-950/60 border-b border-purple-800/60">
-      <span class="text-purple-400 text-[10px] font-black uppercase tracking-widest mr-1">
-        Diamonds
-      </span>
-      <span
-        *ngFor="let available of diamondSlots; let i = index"
-        class="text-lg leading-none transition-all duration-300"
-        [class.opacity-20]="!available"
-        [style.filter]="available ? 'drop-shadow(0 0 4px #fbbf24)' : 'none'">
-        💎
-      </span>
+
+      <!-- Diamonds -->
+      <div class="flex items-center gap-1.5">
+        <span class="text-purple-400 text-[10px] font-black uppercase tracking-widest">
+          Diamonds
+        </span>
+        <span
+          *ngFor="let available of diamondSlots"
+          class="text-lg leading-none transition-all duration-300"
+          [class.opacity-20]="!available"
+          [style.filter]="available ? 'drop-shadow(0 0 4px #fbbf24)' : 'none'">
+          💎
+        </span>
+      </div>
+
+      <!-- Reaction trigger -->
+      <button
+        (click)="toggleReactionPanel()"
+        class="text-xl leading-none bg-transparent border-0 p-0.5 transition-transform"
+        [class.scale-125]="isReactionPanelOpen"
+        style="touch-action: manipulation;"
+        title="Send a reaction">
+        😄
+      </button>
+
+      <!-- Reaction panel (drops down from this strip) -->
+      <div *ngIf="isReactionPanelOpen"
+           class="absolute top-full right-0 z-30 w-56
+                  bg-[#1a0a3e] border border-purple-600 rounded-bl-2xl rounded-br-2xl
+                  shadow-2xl shadow-purple-900/60 overflow-hidden reaction-panel-drop">
+
+        <!-- Emoji grid -->
+        <div class="p-2 grid grid-cols-8 gap-0.5">
+          <button
+            *ngFor="let e of EMOJI_OPTIONS"
+            (click)="sendReaction(e)"
+            class="flex items-center justify-center h-8 text-xl rounded-lg
+                   bg-purple-900/60 hover:bg-purple-700 transition-colors"
+            style="touch-action: manipulation;">
+            {{ e }}
+          </button>
+        </div>
+
+        <!-- Divider -->
+        <div class="h-px bg-purple-800 mx-2"></div>
+
+        <!-- Funny text options -->
+        <div class="p-2 flex flex-col gap-1">
+          <button
+            *ngFor="let t of TAGLINE_OPTIONS"
+            (click)="sendReaction(t)"
+            class="w-full px-2 py-1.5 rounded-xl text-left text-[10px] font-bold
+                   text-purple-300 bg-purple-900/60 hover:bg-purple-700 transition-colors
+                   leading-tight"
+            style="touch-action: manipulation;">
+            "{{ t }}"
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- ── Diamond claimed toast ──────────────────────────────── -->
@@ -341,9 +420,40 @@
             class="board-cell"
             [ngClass]="cell.extraClass">
             {{ cell.emoji }}
+            <span *ngIf="cell.stackCount" class="stack-badge">+{{ cell.stackCount - 1 }}</span>
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- ── Floating reactions overlay ─────────────────────────── -->
+    <div class="pointer-events-none fixed inset-0 z-40 overflow-hidden">
+      <div
+        *ngFor="let r of activeReactions; trackBy: trackByReaction"
+        class="reaction-balloon absolute select-none flex flex-col items-center gap-0.5"
+        [style.left.%]="r.x"
+        [style.bottom.px]="80">
+        <!-- Emoji reaction -->
+        <span *ngIf="r.isEmoji" class="text-4xl leading-none drop-shadow-lg">{{ r.content }}</span>
+        <!-- Text reaction — speech-bubble chip -->
+        <span *ngIf="!r.isEmoji"
+              class="inline-block bg-purple-900 text-white text-[9px] font-black
+                     px-2 py-1 rounded-2xl border border-purple-500 shadow-lg
+                     max-w-[110px] text-center leading-tight whitespace-normal">
+          "{{ r.content }}"
+        </span>
+        <!-- Sender name tag -->
+        <span class="text-[8px] font-bold text-white/80 bg-black/40
+                     px-1.5 py-0.5 rounded-full leading-none mt-0.5">
+          {{ r.senderName }}
+        </span>
+      </div>
+    </div>
+
+    <!-- Clickaway backdrop for reaction panel -->
+    <div *ngIf="isReactionPanelOpen"
+         class="fixed inset-0 z-[25]"
+         (click)="closeReactionPanel()">
     </div>
 
     <!-- ── Controls bar ──────────────────────────────────────── -->
@@ -462,8 +572,27 @@
 
         </div>
 
-        <!-- Right spacer (balances legend) -->
-        <div style="min-width: 72px; max-width: 72px;"></div>
+        <!-- Right: live leaderboard -->
+        <div style="min-width: 72px; max-width: 72px;">
+          <div *ngIf="winners.length > 0" class="flex flex-col gap-0.5">
+            <p class="text-purple-400 text-[8px] font-black uppercase tracking-wide mb-0.5">
+              🏆 Board
+            </p>
+            <div *ngFor="let w of winners; trackBy: trackByWinner"
+                 class="flex items-center gap-0.5 leading-tight">
+              <span class="text-[10px] flex-shrink-0">
+                {{ w.place === 1 ? '🥇' : w.place === 2 ? '🥈' : w.place === 3 ? '🥉' : '#' + w.place }}
+              </span>
+              <span class="text-[9px] font-bold truncate"
+                    [class.text-yellow-400]="w.place === 1"
+                    [class.text-slate-300]="w.place === 2"
+                    [class.text-orange-400]="w.place === 3"
+                    [class.text-purple-400]="w.place > 3">
+                {{ w.name }}
+              </span>
+            </div>
+          </div>
+        </div>
 
       </div>
 
@@ -520,7 +649,11 @@
             {{ w.place === 1 ? '🥇' : w.place === 2 ? '🥈' : w.place === 3 ? '🥉' : '#' + w.place }}
           </span>
           <span class="text-lg leading-none">{{ w.emoji }}</span>
-          <span class="font-black text-sm flex-1 text-left truncate">{{ w.name }}</span>
+          <div class="flex-1 min-w-0 text-left">
+            <div class="font-black text-sm truncate">{{ w.name }}</div>
+            <div *ngIf="players[w.id]?.tagline"
+                 class="text-[9px] italic opacity-70 truncate">"{{ players[w.id]?.tagline }}"</div>
+          </div>
           <span *ngIf="w.id === myId"
                 class="text-[10px] font-black bg-white/30 px-2 py-0.5 rounded-full flex-shrink-0">
             YOU
@@ -554,9 +687,96 @@
       <p class="text-purple-500 text-xs font-bold">
         Same room code · everyone returns to lobby
       </p>
+
+      <!-- Leave Room -->
+      <button
+        (click)="leaveRoom()"
+        class="w-full py-2.5 rounded-2xl text-sm font-black
+               bg-transparent border-2 border-red-700 text-red-400
+               hover:bg-red-900/30 transition-colors"
+        style="touch-action: manipulation;">
+        🚪 Leave Room
+      </button>
     </div>
 
   </div>
   <!-- /WINNER OVERLAY -->
+
+
+  <!-- ════════════════════════════════════════════════════════
+       CUSTOMIZER SHEET
+       Slides up from bottom when player taps their emoji
+       ════════════════════════════════════════════════════════ -->
+  <div *ngIf="isCustomizerOpen"
+       class="fixed inset-0 z-50 flex items-end"
+       (click)="closeCustomizer()">
+
+    <div class="w-full max-h-[78vh] bg-[#1a0a3e] border-t-2 border-purple-500
+                rounded-t-3xl overflow-y-auto pb-safe customizer-sheet"
+         (click)="$event.stopPropagation()">
+
+      <!-- Drag handle -->
+      <div class="w-12 h-1 bg-purple-700 rounded-full mx-auto mt-3 mb-1"></div>
+
+      <!-- Header -->
+      <div class="flex items-center justify-between px-5 py-2 mb-1">
+        <h3 class="font-black text-white text-base">Customize your piece ✨</h3>
+        <button (click)="closeCustomizer()"
+                class="text-purple-400 text-lg font-black bg-transparent border-0"
+                style="touch-action: manipulation;">✕</button>
+      </div>
+
+      <!-- ── Emoji picker ── -->
+      <p class="px-5 pb-2 text-purple-400 text-[10px] font-black uppercase tracking-widest">
+        Pick your emoji
+      </p>
+      <div class="grid grid-cols-8 gap-1.5 px-4 pb-4">
+        <button
+          *ngFor="let e of EMOJI_OPTIONS"
+          (click)="selectEmoji(e)"
+          class="flex items-center justify-center h-10 text-2xl rounded-xl transition-all"
+          [class.bg-yellow-400]="myPlayer?.emoji === e"
+          [class.scale-110]="myPlayer?.emoji === e"
+          [class.bg-purple-800]="myPlayer?.emoji !== e"
+          style="touch-action: manipulation;">
+          {{ e }}
+        </button>
+      </div>
+
+      <!-- ── Tagline picker ── -->
+      <p class="px-5 pb-2 text-purple-400 text-[10px] font-black uppercase tracking-widest
+                border-t border-purple-800/70 pt-3">
+        Pick your vibe 😎
+      </p>
+      <div class="flex flex-col gap-2 px-4 pb-6">
+
+        <!-- None / clear -->
+        <button
+          (click)="selectTagline('')"
+          class="w-full px-4 py-2.5 rounded-2xl text-left text-xs font-bold transition-all"
+          [class.bg-purple-600]="!myPlayer?.tagline"
+          [class.text-white]="!myPlayer?.tagline"
+          [class.bg-purple-900]="!!myPlayer?.tagline"
+          [class.text-purple-500]="!!myPlayer?.tagline"
+          style="touch-action: manipulation;">
+          (no tagline)
+        </button>
+
+        <button
+          *ngFor="let t of TAGLINE_OPTIONS"
+          (click)="selectTagline(t)"
+          class="w-full px-4 py-2.5 rounded-2xl text-left text-xs font-bold transition-all"
+          [class.bg-yellow-400]="myPlayer?.tagline === t"
+          [class.text-slate-900]="myPlayer?.tagline === t"
+          [class.bg-purple-900]="myPlayer?.tagline !== t"
+          [class.text-purple-300]="myPlayer?.tagline !== t"
+          style="touch-action: manipulation;">
+          "{{ t }}"
+        </button>
+
+      </div>
+    </div>
+  </div>
+  <!-- /CUSTOMIZER SHEET -->
 
 </div>

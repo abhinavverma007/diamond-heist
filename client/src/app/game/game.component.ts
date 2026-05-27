@@ -8,11 +8,7 @@ import {
 import { interval, Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { SocketService } from '../services/socket.service';
-
-// TODO: Implement room code validation before emitting (regex /^[A-Z0-9]{4}$/)
-// TODO: Add local-storage persistence for playerName across sessions
-// TODO: Show network reconnect banner when socket drops mid-game
-// TODO: Animate player token sliding across tiles (CSS translate per step)
+import { SoundService } from '../services/sound.service';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -24,8 +20,10 @@ export interface Player {
   isHost: boolean;
   color: string;
   emoji: string;
+  tagline: string;
   ready: boolean;
   disconnected: boolean;
+  won: boolean;
 }
 
 export interface Point {
@@ -43,6 +41,7 @@ export interface Winner {
 export interface CellData {
   emoji: string;
   extraClass: string;
+  stackCount?: number;
 }
 
 export type GameView = 'setup' | 'lobby' | 'game';
@@ -115,16 +114,24 @@ export class GameComponent implements OnInit, OnDestroy {
 
   private readonly destroy$ = new Subject<void>();
 
+  // ── Sound / haptic toggles (reflected in template) ──────────────────────────
+  get isMuted(): boolean     { return this.sound.isMuted; }
+  get isHapticOff(): boolean { return this.sound.isHapticOff; }
+
+  toggleMute(): void    { this.sound.toggleMute();    this.cdr.markForCheck(); }
+  toggleHaptic(): void  { this.sound.toggleHaptic();  this.cdr.markForCheck(); }
+
   constructor(
     private readonly socketService: SocketService,
     private readonly cdr: ChangeDetectorRef,
+    private readonly sound: SoundService,
   ) {}
 
   // ─── Lifecycle ─────────────────────────────────────────────────────────────
 
   ngOnInit(): void {
     this.socketService.connect();
-    this.flatCells = Array.from({ length: 225 }, () => ({ emoji: '', extraClass: '' }));
+    this.flatCells = Array.from({ length: this.G * this.G }, () => ({ emoji: '', extraClass: '' }));
     this.registerSocketListeners();
   }
 
@@ -138,34 +145,51 @@ export class GameComponent implements OnInit, OnDestroy {
 
   // ─── Grid ──────────────────────────────────────────────────────────────────
 
+  private readonly G = 21;
+
   private refreshGrid(): void {
-    const cells: CellData[] = Array.from({ length: 225 }, (_, i) => ({
+    const G = this.G;
+    const cells: CellData[] = Array.from({ length: G * G }, (_, i) => ({
       emoji: '',
-      // Checkerboard pattern on empty cells for a board-game feel
-      extraClass: (Math.floor(i / 15) + (i % 15)) % 2 === 0
-        ? 'cell-light'
-        : 'cell-dark',
+      extraClass: (Math.floor(i / G) + (i % G)) % 2 === 0 ? 'cell-light' : 'cell-dark',
     }));
 
     if (this.diamond) {
-      const dIdx = this.diamond.y * 15 + this.diamond.x;
-      if (dIdx >= 0 && dIdx < 225) {
+      const dIdx = this.diamond.y * G + this.diamond.x;
+      if (dIdx >= 0 && dIdx < G * G) {
         cells[dIdx] = { emoji: '💎', extraClass: 'board-cell--diamond' };
       }
     }
 
+    // Build map: cell index → [playerIds] (skip won players — they're off the board)
+    const cellMap = new Map<number, string[]>();
     for (const id of this.playerOrder) {
       const p = this.players[id];
-      if (!p) continue;
-      const pIdx = p.y * 15 + p.x;
-      if (pIdx < 0 || pIdx >= 225) continue;
+      if (!p || p.won) continue;
+      const pIdx = p.y * G + p.x;
+      if (pIdx < 0 || pIdx >= G * G) continue;
+      if (!cellMap.has(pIdx)) cellMap.set(pIdx, []);
+      cellMap.get(pIdx)!.push(id);
+    }
 
+    for (const [pIdx, ids] of cellMap.entries()) {
+      // Priority: my piece > current player > hopping player > last in list
+      let topId = ids[ids.length - 1];
+      if (ids.includes(this.currentPlayerId)) topId = this.currentPlayerId;
+      if (ids.includes(this.myId))            topId = this.myId;
+      if (ids.includes(this.hoppingPlayerId)) topId = this.hoppingPlayerId;
+
+      const p = this.players[topId];
       let extraClass = 'board-cell--player';
-      if (id === this.currentPlayerId) extraClass = 'board-cell--current';
-      if (id === this.myId)            extraClass += ' board-cell--me';
-      if (id === this.hoppingPlayerId) extraClass += ' board-cell--hopping';
+      if (topId === this.currentPlayerId) extraClass = 'board-cell--current';
+      if (topId === this.myId)            extraClass += ' board-cell--me';
+      if (topId === this.hoppingPlayerId) extraClass += ' board-cell--hopping';
 
-      cells[pIdx] = { emoji: p.emoji, extraClass };
+      cells[pIdx] = {
+        emoji: p.emoji,
+        extraClass,
+        stackCount: ids.length > 1 ? ids.length : undefined,
+      };
     }
 
     this.flatCells = cells;
@@ -230,6 +254,64 @@ export class GameComponent implements OnInit, OnDestroy {
   }
 
   readonly diamondOptions = [1, 2, 3, 4, 5, 6];
+
+  // ── Reaction panel ───────────────────────────────────────────────────────────
+  isReactionPanelOpen = false;
+
+  // Each in-flight balloon: id for trackBy, content, left-% position, isEmoji flag, sender name
+  activeReactions: { id: number; content: string; x: number; isEmoji: boolean; senderName: string }[] = [];
+  private reactionCounter = 0;
+
+  toggleReactionPanel(): void  { this.isReactionPanelOpen = !this.isReactionPanelOpen; this.cdr.markForCheck(); }
+  closeReactionPanel(): void   { this.isReactionPanelOpen = false;  this.cdr.markForCheck(); }
+
+  sendReaction(content: string): void {
+    this.isReactionPanelOpen = false;
+    this.socketService.emit('send_reaction', { roomCode: this.roomCode, content });
+    this.cdr.markForCheck();
+  }
+
+  trackByReaction(_: number, r: { id: number }): number { return r.id; }
+
+  // ── Customizer (lobby emoji + tagline picker) ────────────────────────────────
+  isCustomizerOpen = false;
+
+  readonly EMOJI_OPTIONS = [
+    '🦁','🐯','🦊','🐼','🦝','🐺','🦄','🦈',
+    '👻','💀','🤖','👽','🎃','🥷','🦸','🤡',
+    '🎮','🚀','🏆','🎯','⚡','🎲','🃏','🎪',
+    '🍕','🌮','🍜','🍩','🧁','🍦','🍎','🍓',
+  ];
+
+  readonly TAGLINE_OPTIONS = [
+    'tumse na ho payega',
+    'mai jitne wala hoon',
+    'diamond mera hi hai',
+    'bhai, try mat karo',
+    'baap aa gaya',
+    'lucky shot incoming 🔥',
+    'seedha home jaoge',
+    'ek number legend',
+    'hum nahi jeete toh kaun?',
+    'khelna hai toh jhel na',
+  ];
+
+  openCustomizer(): void  { this.isCustomizerOpen = true;  this.cdr.markForCheck(); }
+  closeCustomizer(): void { this.isCustomizerOpen = false; this.cdr.markForCheck(); }
+
+  selectEmoji(emoji: string): void {
+    if (!this.myId || !this.players[this.myId]) return;
+    this.players = { ...this.players, [this.myId]: { ...this.players[this.myId], emoji } };
+    this.socketService.emit('set_emoji', { roomCode: this.roomCode, emoji });
+    this.cdr.markForCheck();
+  }
+
+  selectTagline(tagline: string): void {
+    if (!this.myId || !this.players[this.myId]) return;
+    this.players = { ...this.players, [this.myId]: { ...this.players[this.myId], tagline } };
+    this.socketService.emit('set_tagline', { roomCode: this.roomCode, tagline });
+    this.cdr.markForCheck();
+  }
 
   /** true = still available, false = already claimed. Total = host's chosen count. */
   get diamondSlots(): boolean[] {
@@ -316,7 +398,10 @@ export class GameComponent implements OnInit, OnDestroy {
     this.turnIndex       = turnIndex;
     this.currentPlayerId = currentPlayerId;
     this.isMoving        = false;
-    if (turnChanged) this.resetDiceState();
+    if (turnChanged) {
+      this.resetDiceState();
+      if (currentPlayerId === this.myId) this.sound.playYourTurn();
+    }
 
     if (this.pendingWin) {
       const pw = this.pendingWin;
@@ -365,6 +450,14 @@ export class GameComponent implements OnInit, OnDestroy {
         this.cdr.markForCheck();
       });
 
+    this.socketService
+      .on<{ players: Record<string, Player>; playerOrder: string[] }>('player_updated')
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(data => {
+        this.players = data.players; this.playerOrder = data.playerOrder;
+        this.cdr.markForCheck();
+      });
+
     // A player toggled their ready status – only update the shared players map.
     // myReady is a local one-way flag; never read it back from this snapshot
     // because the snapshot may predate our own ready_up confirmation.
@@ -388,6 +481,7 @@ export class GameComponent implements OnInit, OnDestroy {
         this.isMoving = false; this.myReady = false; this.currentView = 'game';
         this.resetDiceState();
         this.refreshGrid();
+        if (data.currentPlayerId === this.myId) this.sound.playYourTurn();
         this.cdr.markForCheck();
       });
 
@@ -407,6 +501,7 @@ export class GameComponent implements OnInit, OnDestroy {
           this.rollingDisplay = data.roll;
           this.stepsRemaining = data.stepsRemaining;
           this.dicePhase      = 'landed';
+          this.sound.playLand();
           this.cdr.markForCheck();
         }, delay);
       });
@@ -428,6 +523,7 @@ export class GameComponent implements OnInit, OnDestroy {
         this.diamond = data.diamond;
         this.diamondsRemaining = data.remainingCount;
 
+        this.sound.playDiamondClaim();
         if (this.claimToastTimer) clearTimeout(this.claimToastTimer);
         const ordinal = ['1st', '2nd', '3rd', '4th', '5th', '6th'][data.winner.place - 1] ?? `#${data.winner.place}`;
         const left = data.remainingCount > 0 ? ` (${data.remainingCount} left)` : '';
@@ -540,6 +636,23 @@ export class GameComponent implements OnInit, OnDestroy {
         setTimeout(() => { this.errorMsg = ''; this.cdr.markForCheck(); }, 4000);
       });
 
+    this.socketService
+      .on<{ senderId: string; senderName: string; senderEmoji: string; content: string; isEmoji: boolean }>('reaction_received')
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(data => {
+        const id = ++this.reactionCounter;
+        const x  = 10 + Math.random() * 65; // 10–75 % from left edge
+        this.activeReactions = [
+          ...this.activeReactions,
+          { id, content: data.content, x, isEmoji: data.isEmoji, senderName: data.senderName },
+        ];
+        this.cdr.markForCheck();
+        setTimeout(() => {
+          this.activeReactions = this.activeReactions.filter(r => r.id !== id);
+          this.cdr.markForCheck();
+        }, 3200); // slightly longer than the 3s CSS animation
+      });
+
     this.socketService.on<{ message: string }>('game_error')
       .pipe(takeUntil(this.destroy$))
       .subscribe(data => {
@@ -593,10 +706,11 @@ export class GameComponent implements OnInit, OnDestroy {
 
     this.dicePhase     = 'rolling';
     this.rollStartTime = Date.now();
+    this.sound.unlock();
+    this.sound.playRoll();
     this.socketService.emit('roll_dice', { roomCode: this.roomCode });
 
     // Cycle random dice faces every 80ms until server responds
-    // TODO: Add haptic feedback here (navigator.vibrate) for mobile
     interval(80)
       .pipe(takeUntil(this.rollAnimStop$), takeUntil(this.destroy$))
       .subscribe(() => {
@@ -615,6 +729,24 @@ export class GameComponent implements OnInit, OnDestroy {
 
   playAgain(): void {
     this.socketService.emit('play_again', { roomCode: this.roomCode });
+  }
+
+  leaveRoom(): void {
+    if (this.roomCode) {
+      this.socketService.emit('leave_room', { roomCode: this.roomCode });
+    }
+    this.socketService.clearSession();
+    this.currentView = 'setup';
+    this.roomCode = ''; this.myId = ''; this.isHost = false;
+    this.players = {}; this.playerOrder = [];
+    this.myReady = false; this.isBusy = false; this.errorMsg = '';
+    this.showWinnerModal = false; this.winners = [];
+    this.diamond = null; this.diamondsRemaining = 0;
+    this.stepsRemaining = 0; this.isMoving = false;
+    this.hoppingPlayerId = '';
+    this.resetDiceState();
+    this.refreshGrid();
+    this.cdr.markForCheck();
   }
 
   copyRoomCode(): void {
