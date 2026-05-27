@@ -18,7 +18,7 @@ const io = new Server(httpServer, {
 });
 
 const PORT = process.env.PORT || 3001;
-const GRID_SIZE = 15;
+const GRID_SIZE = 21;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -30,9 +30,12 @@ interface Player {
   isHost: boolean;
   color: string;
   emoji: string;
+  tagline: string;
   ready: boolean;
   sessionId: string;
   disconnected: boolean;
+  won: boolean;
+  reactionAt: number; // unix ms – for rate limiting reactions
 }
 
 interface Point {
@@ -61,6 +64,26 @@ interface RoomState {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
+const ALLOWED_EMOJIS = new Set([
+  '🦁','🐯','🦊','🐼','🦝','🐺','🦄','🦈',
+  '👻','💀','🤖','👽','🎃','🥷','🦸','🤡',
+  '🎮','🚀','🏆','🎯','⚡','🎲','🃏','🎪',
+  '🍕','🌮','🍜','🍩','🧁','🍦','🍎','🍓',
+]);
+
+const ALLOWED_TAGLINES = new Set([
+  'tumse na ho payega',
+  'mai jitne wala hoon',
+  'diamond mera hi hai',
+  'bhai, try mat karo',
+  'baap aa gaya',
+  'lucky shot incoming 🔥',
+  'seedha home jaoge',
+  'ek number legend',
+  'hum nahi jeete toh kaun?',
+  'khelna hai toh jhel na',
+]);
+
 const PLAYER_COLORS = [
   '#ef4444', // red
   '#3b82f6', // blue
@@ -74,18 +97,6 @@ const PLAYER_COLORS = [
   '#84cc16', // lime
 ];
 const PLAYER_EMOJIS = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
-const PLAYER_START_POSITIONS: Point[] = [
-  { x: 0,             y: 0 },              // top-left
-  { x: GRID_SIZE - 1, y: GRID_SIZE - 1 },  // bottom-right
-  { x: 0,             y: GRID_SIZE - 1 },  // bottom-left
-  { x: GRID_SIZE - 1, y: 0 },              // top-right
-  { x: 7,             y: 0 },              // top-center
-  { x: 7,             y: GRID_SIZE - 1 },  // bottom-center
-  { x: 0,             y: 7 },              // left-center
-  { x: GRID_SIZE - 1, y: 7 },              // right-center
-  { x: 3,             y: 0 },              // top-left-mid
-  { x: 11,            y: GRID_SIZE - 1 },  // bottom-right-mid
-];
 
 // ─── In-memory stores ────────────────────────────────────────────────────────
 
@@ -116,14 +127,38 @@ function uniqueRoomCode(): string {
   return code;
 }
 
+function getPerimeter(): Point[] {
+  const max = GRID_SIZE - 1;
+  const pts: Point[] = [];
+  for (let x = 0; x <= max; x++) pts.push({ x, y: 0 });
+  for (let y = 1; y <= max; y++) pts.push({ x: max, y });
+  for (let x = max - 1; x >= 0; x--) pts.push({ x, y: max });
+  for (let y = max - 1; y >= 1; y--) pts.push({ x: 0, y });
+  return pts;
+}
+
+function assignStartPositions(room: RoomState): void {
+  const perimeter = getPerimeter();
+  const total = room.playerOrder.length;
+  room.playerOrder.forEach((id, idx) => {
+    const p = room.players[id];
+    if (!p) return;
+    const periIdx = Math.floor((idx * perimeter.length) / total);
+    p.x = perimeter[periIdx].x;
+    p.y = perimeter[periIdx].y;
+  });
+}
+
 function spawnDiamond(players: Record<string, Player>): Point {
   const MAX_ATTEMPTS = 100;
+  const center = Math.floor(GRID_SIZE / 2);
+  const zone = Math.floor(GRID_SIZE / 4);
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    const x = 4 + Math.floor(Math.random() * 7); // cols 4–10
-    const y = 4 + Math.floor(Math.random() * 7); // rows 4–10
+    const x = center - zone + Math.floor(Math.random() * (zone * 2 + 1));
+    const y = center - zone + Math.floor(Math.random() * (zone * 2 + 1));
     if (!Object.values(players).some(p => p.x === x && p.y === y)) return { x, y };
   }
-  return { x: 7, y: 7 };
+  return { x: center, y: center };
 }
 
 function removePlayerFromRoom(roomCode: string, playerId: string): void {
@@ -144,7 +179,6 @@ function removePlayerFromRoom(roomCode: string, playerId: string): void {
 
   room.playerOrder.forEach((id, idx) => {
     room.players[id].color = PLAYER_COLORS[idx % PLAYER_COLORS.length];
-    room.players[id].emoji = PLAYER_EMOJIS[idx % PLAYER_EMOJIS.length];
   });
 
   io.to(roomCode).emit('player_left', {
@@ -154,7 +188,14 @@ function removePlayerFromRoom(roomCode: string, playerId: string): void {
 }
 
 function advanceTurn(room: RoomState): void {
-  room.turnIndex = (room.turnIndex + 1) % room.playerOrder.length;
+  const total = room.playerOrder.length;
+  let next = (room.turnIndex + 1) % total;
+  let skipped = 0;
+  while (skipped < total && room.players[room.playerOrder[next]]?.won) {
+    next = (next + 1) % total;
+    skipped++;
+  }
+  room.turnIndex = next;
   room.currentRoll = 0;
   room.stepsRemaining = 0;
 }
@@ -173,14 +214,17 @@ io.on('connection', (socket: Socket) => {
     const player: Player = {
       id: socket.id,
       name,
-      x: PLAYER_START_POSITIONS[0].x,
-      y: PLAYER_START_POSITIONS[0].y,
+      x: 0,
+      y: 0,
       isHost: true,
       color: PLAYER_COLORS[0],
       emoji: PLAYER_EMOJIS[0],
+      tagline: '',
       ready: false,
       sessionId: generateSessionId(),
       disconnected: false,
+      won: false,
+      reactionAt: 0,
     };
 
     rooms[roomCode] = {
@@ -228,14 +272,17 @@ io.on('connection', (socket: Socket) => {
     const player: Player = {
       id: socket.id,
       name: name || `Player ${idx + 1}`,
-      x: PLAYER_START_POSITIONS[idx % PLAYER_START_POSITIONS.length].x,
-      y: PLAYER_START_POSITIONS[idx % PLAYER_START_POSITIONS.length].y,
+      x: 0,
+      y: 0,
       isHost: false,
       color: PLAYER_COLORS[idx % PLAYER_COLORS.length],
       emoji: PLAYER_EMOJIS[idx % PLAYER_EMOJIS.length],
+      tagline: '',
       ready: false,
       sessionId: generateSessionId(),
       disconnected: false,
+      won: false,
+      reactionAt: 0,
     };
 
     room.players[socket.id] = player;
@@ -290,6 +337,8 @@ io.on('connection', (socket: Socket) => {
     room.turnIndex = 0;
     room.currentRoll = 0;
     room.stepsRemaining = 0;
+    assignStartPositions(room);
+    room.playerOrder.forEach(id => { if (room.players[id]) room.players[id].won = false; });
     room.diamond = spawnDiamond(room.players);
     room.diamondsRemaining = count;
 
@@ -415,6 +464,7 @@ io.on('connection', (socket: Socket) => {
       const place = room.winners.length + 1;
       const winner: Winner = { id: socket.id, name: player.name, place, emoji: player.emoji };
       room.winners.push(winner);
+      player.won = true;
 
       const gameOver = room.diamondsRemaining === 0;
       if (gameOver) { room.diamond = null; room.gameStarted = false; }
@@ -471,12 +521,11 @@ io.on('connection', (socket: Socket) => {
     room.diamond = null;
     room.diamondsRemaining = 0;
 
-    room.playerOrder.forEach((id, index) => {
-      const p = room.players[id];
-      if (p && index < PLAYER_START_POSITIONS.length) {
-        p.x = PLAYER_START_POSITIONS[index].x;
-        p.y = PLAYER_START_POSITIONS[index].y;
-        p.ready = false; // each player must re-confirm ready for the next match
+    assignStartPositions(room);
+    room.playerOrder.forEach(id => {
+      if (room.players[id]) {
+        room.players[id].ready = false;
+        room.players[id].won = false;
       }
     });
 
@@ -487,6 +536,72 @@ io.on('connection', (socket: Socket) => {
     });
 
     console.log(`[Room ${roomCode}] Reset – back to lobby`);
+  });
+
+  // ── Set Emoji ────────────────────────────────────────────────────────────
+
+  socket.on('set_emoji', ({ roomCode, emoji }: { roomCode: string; emoji: string }) => {
+    const room = rooms[roomCode];
+    if (!room) return;
+    const player = room.players[socket.id];
+    if (!player || !ALLOWED_EMOJIS.has(emoji)) return;
+    player.emoji = emoji;
+    io.to(roomCode).emit('player_updated', { players: room.players, playerOrder: room.playerOrder });
+  });
+
+  // ── Set Tagline ───────────────────────────────────────────────────────────
+
+  socket.on('set_tagline', ({ roomCode, tagline }: { roomCode: string; tagline: string }) => {
+    const room = rooms[roomCode];
+    if (!room) return;
+    const player = room.players[socket.id];
+    if (!player) return;
+    if (tagline !== '' && !ALLOWED_TAGLINES.has(tagline)) return;
+    player.tagline = tagline;
+    io.to(roomCode).emit('player_updated', { players: room.players, playerOrder: room.playerOrder });
+  });
+
+  // ── Send Reaction ────────────────────────────────────────────────────────
+
+  socket.on('send_reaction', ({ roomCode, content }: { roomCode: string; content: string }) => {
+    const room = rooms[roomCode];
+    if (!room) return;
+    const player = room.players[socket.id];
+    if (!player) return;
+
+    // 2-second per-player rate limit
+    const now = Date.now();
+    if (now - player.reactionAt < 2000) return;
+    player.reactionAt = now;
+
+    // Validate against the combined whitelist
+    const isEmoji = ALLOWED_EMOJIS.has(content);
+    if (!isEmoji && !ALLOWED_TAGLINES.has(content)) return;
+
+    io.to(roomCode).emit('reaction_received', {
+      senderId:    socket.id,
+      senderName:  player.name,
+      senderEmoji: player.emoji,
+      content,
+      isEmoji,
+    });
+  });
+
+  // ── Leave Room ───────────────────────────────────────────────────────────
+
+  socket.on('leave_room', ({ roomCode }: { roomCode: string }) => {
+    const player = rooms[roomCode]?.players[socket.id];
+    if (!player) return;
+
+    // Cancel any pending grace timer so the slot isn't held after voluntary leave
+    if (disconnectTimers[player.sessionId]) {
+      clearTimeout(disconnectTimers[player.sessionId]);
+      delete disconnectTimers[player.sessionId];
+    }
+
+    removePlayerFromRoom(roomCode, socket.id);
+    socket.leave(roomCode);
+    console.log(`[Room ${roomCode}] "${player.name}" left voluntarily`);
   });
 
   // ── Reconnect Room ────────────────────────────────────────────────────────
