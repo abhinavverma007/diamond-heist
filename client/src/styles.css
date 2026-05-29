@@ -22,7 +22,7 @@ html, body {
   padding: 0;
   overflow: hidden;
   font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: #0d0b1e;
+  background: #0e0a06;
   color: #f1f5f9;
   overscroll-behavior: none;
   -webkit-overflow-scrolling: touch;
@@ -37,13 +37,20 @@ input, textarea {
 .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
 .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
 
-/* ── Space background with floating stars ──────────────────────────── */
+/* ── Underground mine background ────────────────────────────────────── */
+/* Deep in Earth's mantle – dark rock with glowing ore veins & lava heat */
 .space-bg {
-  background: radial-gradient(ellipse at top, #1a0a3e 0%, #0d0b1e 60%);
+  background:
+    radial-gradient(ellipse 170% 55% at 50% 115%, rgba(194,65,12,0.50) 0%, transparent 62%),
+    radial-gradient(ellipse at 12% 100%, rgba(120,53,15,0.35) 0%, transparent 48%),
+    radial-gradient(ellipse at 88% 100%, rgba(153,27,27,0.30) 0%, transparent 48%),
+    radial-gradient(ellipse 60% 30% at 50% 0%,  rgba(8,6,3,0.85)   0%, transparent 100%),
+    linear-gradient(180deg, #080603 0%, #0e0a06 30%, #160d07 65%, #1c1008 100%);
   position: relative;
   overflow: hidden;
 }
 
+/* Floating ore dust & hot embers drifting upward */
 .space-bg::before,
 .space-bg::after {
   content: '';
@@ -51,33 +58,129 @@ input, textarea {
   inset: 0;
   pointer-events: none;
   background-image:
-    radial-gradient(1px 1px at 20% 15%, #fff 0%, transparent 100%),
-    radial-gradient(1px 1px at 80% 10%, #fff 0%, transparent 100%),
-    radial-gradient(1.5px 1.5px at 45% 25%, #facc15 0%, transparent 100%),
-    radial-gradient(1px 1px at 65% 40%, #fff 0%, transparent 100%),
-    radial-gradient(1px 1px at 10% 60%, #fff 0%, transparent 100%),
-    radial-gradient(1.5px 1.5px at 90% 55%, #a78bfa 0%, transparent 100%),
-    radial-gradient(1px 1px at 30% 80%, #fff 0%, transparent 100%),
-    radial-gradient(1px 1px at 75% 85%, #fff 0%, transparent 100%),
-    radial-gradient(1.5px 1.5px at 55% 70%, #facc15 0%, transparent 100%),
-    radial-gradient(1px 1px at 5%  35%, #fff 0%, transparent 100%),
-    radial-gradient(1px 1px at 95% 30%, #fff 0%, transparent 100%);
-  animation: twinkle 4s ease-in-out infinite alternate;
+    radial-gradient(1.5px 1.5px at  8% 22%, rgba(251,191, 36,0.80) 0%, transparent 100%),
+    radial-gradient(1px   1px   at 72% 15%, rgba(249,115, 22,0.65) 0%, transparent 100%),
+    radial-gradient(2px   2px   at 38% 55%, rgba(239, 68, 68,0.55) 0%, transparent 100%),
+    radial-gradient(1px   1px   at 88% 60%, rgba(249,115, 22,0.70) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 22% 78%, rgba(253,230,138,0.60) 0%, transparent 100%),
+    radial-gradient(1px   1px   at 58% 10%, rgba(239, 68, 68,0.50) 0%, transparent 100%),
+    radial-gradient(1px   1px   at  5% 65%, rgba(251,191, 36,0.55) 0%, transparent 100%),
+    radial-gradient(2px   2px   at 92% 38%, rgba(249,115, 22,0.65) 0%, transparent 100%),
+    radial-gradient(1px   1px   at 48% 88%, rgba(239, 68, 68,0.55) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 30% 44%, rgba(251,191, 36,0.50) 0%, transparent 100%),
+    radial-gradient(1px   1px   at 65% 72%, rgba(249,115, 22,0.60) 0%, transparent 100%);
+  animation: ember-drift 3.5s ease-in-out infinite alternate;
 }
 
 .space-bg::after {
-  animation-delay: 2s;
+  animation-delay: 1.8s;
   background-image:
-    radial-gradient(1px 1px at 15% 45%, #fff 0%, transparent 100%),
-    radial-gradient(1.5px 1.5px at 70% 20%, #38bdf8 0%, transparent 100%),
-    radial-gradient(1px 1px at 40% 55%, #fff 0%, transparent 100%),
-    radial-gradient(1px 1px at 85% 70%, #fff 0%, transparent 100%),
-    radial-gradient(1.5px 1.5px at 25% 90%, #f0abfc 0%, transparent 100%);
+    radial-gradient(1.5px 1.5px at 18% 48%, rgba(253,230,138,0.65) 0%, transparent 100%),
+    radial-gradient(1px   1px   at 62% 30%, rgba(239, 68, 68,0.55) 0%, transparent 100%),
+    radial-gradient(1px   1px   at 42% 85%, rgba(249,115, 22,0.60) 0%, transparent 100%),
+    radial-gradient(2px   2px   at 78% 55%, rgba(251,191, 36,0.55) 0%, transparent 100%),
+    radial-gradient(1px   1px   at 32% 65%, rgba(239, 68, 68,0.60) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 50% 35%, rgba(253,230,138,0.50) 0%, transparent 100%),
+    radial-gradient(1px   1px   at 85% 18%, rgba(249,115, 22,0.55) 0%, transparent 100%);
 }
 
-@keyframes twinkle {
-  from { opacity: 0.6; }
-  to   { opacity: 1; }
+@keyframes ember-drift {
+  from { opacity: 0.30; transform: translateY(0px); }
+  to   { opacity: 1.00; transform: translateY(-8px); }
+}
+
+/* ── Game view: deep underground mine shaft ────────────────────────── */
+/* The board is the lit mine floor. Everything else is solid rock.      */
+.game-bg {
+  background:
+    /* Solid rock ceiling – almost no light reaches up here */
+    radial-gradient(ellipse 100% 28% at 50% 0%,   rgba(2,1,0,0.98)    0%, transparent 100%),
+    /* Narrow mine-shaft column: faint light leaking down from above */
+    radial-gradient(ellipse  14% 35% at 50% 0%,   rgba(92,45,10,0.22) 0%, transparent 100%),
+    /* Solid rock walls – near-total darkness pressing in hard */
+    radial-gradient(ellipse  28% 100% at   0% 50%, rgba(1,0,0,0.99)   0%, rgba(1,0,0,0) 100%),
+    radial-gradient(ellipse  28% 100% at 100% 50%, rgba(1,0,0,0.99)   0%, rgba(1,0,0,0) 100%),
+    /* Rock shoulder fade so the transition isn't a hard line */
+    radial-gradient(ellipse  48% 100% at   0% 50%, rgba(2,1,0,0.80)   0%, rgba(2,1,0,0) 100%),
+    radial-gradient(ellipse  48% 100% at 100% 50%, rgba(2,1,0,0.80)   0%, rgba(2,1,0,0) 100%),
+    /* Lava heat columns rising from the magma pool far below */
+    radial-gradient(ellipse 300% 55% at 50% 125%, rgba(200,30,10,0.80) 0%, transparent 58%),
+    radial-gradient(ellipse 160% 40% at 20% 120%, rgba(249,115,22,0.62) 0%, transparent 55%),
+    radial-gradient(ellipse 160% 40% at 80% 120%, rgba(180,55,10,0.62) 0%, transparent 55%),
+    radial-gradient(ellipse  70% 28% at 50% 122%, rgba(251,191,36,0.38) 0%, transparent 50%),
+    /* Deep rock base – charcoal-brown getting hotter toward the floor */
+    linear-gradient(180deg, #010100 0%, #060402 12%, #0d0703 35%, #170b05 60%, #220d06 82%, #2c1008 100%);
+}
+
+/* Diamond ore veins embedded IN the rock walls (edges only, not floating) */
+/* + subtle horizontal rock-strata lines                                    */
+.game-bg::before {
+  background-image:
+    /* Horizontal rock strata – very subtle banding across the cave walls */
+    repeating-linear-gradient(
+      180deg,
+      transparent            0px,  transparent            38px,
+      rgba(50,25,8,0.18)    38px,  rgba(50,25,8,0.18)    40px,
+      transparent            40px,  transparent            82px,
+      rgba(30,15,4,0.12)    82px,  rgba(30,15,4,0.12)    84px,
+      transparent            84px,  transparent           130px,
+      rgba(40,20,6,0.10)   130px,  rgba(40,20,6,0.10)   131px
+    ),
+    /* ── Left wall diamonds ── */
+    radial-gradient(2px   2px   at  2% 12%, rgba(165,243,252,0.90) 0%, transparent 100%),
+    radial-gradient(3px   3px   at  5% 28%, rgba(165,243,252,0.80) 0%, transparent 100%),
+    radial-gradient(2px   2px   at  3% 44%, rgba(165,243,252,0.85) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at  7% 58%, rgba(165,243,252,0.70) 0%, transparent 100%),
+    radial-gradient(3px   3px   at  4% 72%, rgba(165,243,252,0.78) 0%, transparent 100%),
+    radial-gradient(2px   2px   at  6% 86%, rgba(165,243,252,0.82) 0%, transparent 100%),
+    radial-gradient(2px   2px   at  9% 36%, rgba(165,243,252,0.65) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 11% 62%, rgba(165,243,252,0.72) 0%, transparent 100%),
+    /* ── Right wall diamonds ── */
+    radial-gradient(2px   2px   at 98%  8%, rgba(165,243,252,0.88) 0%, transparent 100%),
+    radial-gradient(3px   3px   at 95% 22%, rgba(165,243,252,0.78) 0%, transparent 100%),
+    radial-gradient(2px   2px   at 97% 40%, rgba(165,243,252,0.83) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 93% 55%, rgba(165,243,252,0.68) 0%, transparent 100%),
+    radial-gradient(3px   3px   at 96% 70%, rgba(165,243,252,0.76) 0%, transparent 100%),
+    radial-gradient(2px   2px   at 94% 84%, rgba(165,243,252,0.80) 0%, transparent 100%),
+    radial-gradient(2px   2px   at 90% 30%, rgba(165,243,252,0.63) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 88% 65%, rgba(165,243,252,0.70) 0%, transparent 100%),
+    /* ── Ceiling diamonds ── */
+    radial-gradient(2px   2px   at 18%  4%, rgba(165,243,252,0.75) 0%, transparent 100%),
+    radial-gradient(3px   3px   at 38%  3%, rgba(165,243,252,0.68) 0%, transparent 100%),
+    radial-gradient(2px   2px   at 58%  5%, rgba(165,243,252,0.80) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 78%  2%, rgba(165,243,252,0.72) 0%, transparent 100%),
+    radial-gradient(2px   2px   at 25%  9%, rgba(165,243,252,0.60) 0%, transparent 100%),
+    radial-gradient(2px   2px   at 72%  8%, rgba(165,243,252,0.65) 0%, transparent 100%);
+  animation: ore-vein-glint 2.8s ease-in-out infinite alternate;
+}
+
+@keyframes ore-vein-glint {
+  from { opacity: 0.35; }
+  to   { opacity: 1.00; }
+}
+
+/* Lava cracks glowing on the walls + magma pool flicker below */
+.game-bg::after {
+  animation-delay: 0.7s;
+  background-image:
+    /* Lava crack – left wall, two fissures */
+    radial-gradient(ellipse 4%  30% at  1% 38%, rgba(239,68,68,0.55)  0%, transparent 100%),
+    radial-gradient(ellipse 3%  18% at  0% 65%, rgba(249,115,22,0.45) 0%, transparent 100%),
+    /* Lava crack – right wall */
+    radial-gradient(ellipse 4%  25% at 99% 28%, rgba(239,68,68,0.50)  0%, transparent 100%),
+    radial-gradient(ellipse 3%  20% at 100% 58%, rgba(249,115,22,0.42) 0%, transparent 100%),
+    /* Lava pool below – three heat columns flickering */
+    radial-gradient(ellipse 110% 26% at 35% 106%, rgba(220,38,38,0.55) 0%, transparent 58%),
+    radial-gradient(ellipse  80% 20% at 65% 108%, rgba(249,115,22,0.48) 0%, transparent 53%),
+    radial-gradient(ellipse  55% 18% at 50% 110%, rgba(251,191,36,0.36) 0%, transparent 48%);
+  animation: lava-crack-flicker 1.8s ease-in-out infinite alternate;
+}
+
+@keyframes lava-crack-flicker {
+  0%   { opacity: 0.45; }
+  30%  { opacity: 0.90; }
+  60%  { opacity: 0.52; }
+  100% { opacity: 0.80; }
 }
 
 /* ── Game board ─────────────────────────────────────────────────────── */
@@ -85,7 +188,17 @@ input, textarea {
   width: min(85vw, calc(100svh - 180px));
   height: min(85vw, calc(100svh - 180px));
   flex-shrink: 0;
-  filter: drop-shadow(0 0 28px rgba(139, 92, 246, 0.45));
+  /* Rock frame – radial gradient suggests a carved stone surface */
+  padding: 6px;
+  border-radius: 16px;
+  background: radial-gradient(circle at 32% 28%, #5c2d00 0%, #2e1500 45%, #180a00 100%);
+  box-shadow:
+    0 0 0 2px #b45309,
+    0 0 0 4px rgba(234, 88, 12, 0.35),
+    0 14px 50px rgba(0, 0, 0, 0.95),
+    0 0  60px rgba(249, 115, 22, 0.12),
+    inset 0  3px 10px rgba(251, 191, 36, 0.20),
+    inset 0 -3px 10px rgba(0, 0, 0, 0.55);
 }
 
 .board-grid {
@@ -95,25 +208,29 @@ input, textarea {
   width: 100%;
   height: 100%;
   gap: 1px;
-  background-color: #2e1065;
+  /* Amber-dark gaps = glowing ore veins between stone tiles */
+  background-color: #4a2200;
   border-radius: 10px;
   overflow: hidden;
-  border: 2px solid #7c3aed;
-  box-shadow: 0 0 30px rgba(124, 58, 237, 0.4), inset 0 0 20px rgba(0,0,0,0.5);
+  border: none;
+  box-shadow:
+    inset 0 0 40px rgba(0, 0, 0, 0.70),
+    inset 0 2px  8px rgba(251, 191, 36, 0.07);
 }
 
 .board-cell {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: calc(min(85vw, calc(100svh - 180px)) / 21 * 0.72);
+  /* font-size needs the full container dimension which now includes padding */
+  font-size: calc((min(85vw, calc(100svh - 180px)) - 12px) / 21 * 0.72);
   line-height: 1;
   touch-action: manipulation;
 }
 
-/* Checkerboard empty cells */
-.cell-light { background-color: #1e1b4b; }
-.cell-dark  { background-color: #17174a; }
+/* Checkerboard empty cells – dark stone floor */
+.cell-light { background-color: #1e1609; }
+.cell-dark  { background-color: #150f05; }
 
 /* Diamond – radial gold gradient + breathing scale glow */
 .board-cell--diamond {
@@ -200,11 +317,79 @@ input, textarea {
   }
 }
 
-/* ── Dice ───────────────────────────────────────────────────────────── */
+/* ── Roll Dice button – molten ore, premium breathe ──────────────────── */
+.btn-roll {
+  position: relative;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 42% 32%, #b45309 0%, #78350f 48%, #3d1500 100%);
+  border: 2px solid rgba(251,191,36,0.55);
+  border-bottom-width: 5px;
+  border-bottom-color: rgba(92,32,0,0.90);
+  border-radius: 20px;
+  padding: 14px 32px;
+  font-size: 1.05rem;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: #fde68a;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.09s, box-shadow 0.09s, border-bottom-width 0.09s;
+  animation: roll-btn-breathe 2.8s ease-in-out infinite;
+  /* Text shadow for that engraved gold look */
+  text-shadow: 0 1px 6px rgba(251,191,36,0.60), 0 0 20px rgba(251,191,36,0.30);
+}
+
+/* Top-left sheen — catching light from above the cave */
+.btn-roll::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg,
+    rgba(251,191,36,0.18) 0%,
+    rgba(251,191,36,0.06) 35%,
+    transparent 60%);
+  pointer-events: none;
+}
+
+/* Idle breathing glow — lava heat pulses */
+@keyframes roll-btn-breathe {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px  rgba(251,191,36,0.18),
+      0 0 14px 3px rgba(249,115,22,0.38),
+      0 0 36px 8px rgba(239,68,68,0.12),
+      0 10px 28px    rgba(0,0,0,0.80),
+      inset 0 1px 2px rgba(251,191,36,0.30);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px  rgba(251,191,36,0.42),
+      0 0 26px 8px rgba(249,115,22,0.65),
+      0 0 55px 16px rgba(239,68,68,0.22),
+      0 10px 32px    rgba(0,0,0,0.88),
+      inset 0 1px 3px rgba(251,191,36,0.55);
+  }
+}
+
+.btn-roll:active:not(:disabled) {
+  transform: translateY(4px);
+  border-bottom-width: 2px;
+  animation: none;
+  box-shadow:
+    0 0 0 1px  rgba(251,191,36,0.15),
+    0 0 10px 2px rgba(249,115,22,0.28),
+    0 3px 10px     rgba(0,0,0,0.70),
+    inset 0 2px 4px rgba(0,0,0,0.35);
+}
+
+/* ── Dice box – carved stone with amber ore face ─────────────────────── */
 .dice-box {
   width: 68px;
   height: 68px;
-  background: linear-gradient(145deg, #ffffff, #e0e7ff);
+  background: radial-gradient(circle at 38% 34%, #92400e 0%, #3d1a00 65%, #1e0d00 100%);
   border-radius: 14px;
   display: flex;
   align-items: center;
@@ -212,10 +397,10 @@ input, textarea {
   font-size: 2.6rem;
   line-height: 1;
   box-shadow:
-    0 6px 20px rgba(0,0,0,0.5),
-    0 0 0 3px #7c3aed,
-    0 0 20px rgba(124,58,237,0.4);
-  color: #1e1b4b;
+    0 6px 22px rgba(0,0,0,0.75),
+    0 0 0 2px rgba(251,191,36,0.55),
+    0 0 18px 4px rgba(249,115,22,0.40);
+  color: #fde68a;
   touch-action: manipulation;
 }
 
@@ -242,7 +427,7 @@ input, textarea {
   100% { transform: scale(1) rotate(0deg);     opacity: 1; }
 }
 
-/* ── D-pad ──────────────────────────────────────────────────────────── */
+/* ── D-pad – carved stone directional keys ───────────────────────────── */
 .dpad {
   display: grid;
   grid-template-columns: repeat(3, 3rem);
@@ -254,21 +439,31 @@ input, textarea {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(145deg, #4f46e5, #7c3aed);
-  border: none;
+  background: radial-gradient(circle at 42% 35%, #78350f 0%, #2d1200 75%);
+  border: 1.5px solid rgba(251,191,36,0.35);
+  border-bottom: 4px solid rgba(20,8,0,0.90);
   border-radius: 10px;
   font-size: 1.3rem;
-  color: #fff;
+  color: #fcd34d;
   cursor: pointer;
   touch-action: manipulation;
-  box-shadow: 0 4px 0 #312e81, 0 6px 12px rgba(0,0,0,0.4);
-  transition: transform 0.08s, box-shadow 0.08s;
+  box-shadow:
+    0 5px 14px rgba(0,0,0,0.60),
+    inset 0 1px 1px rgba(251,191,36,0.18);
+  transition: transform 0.08s, box-shadow 0.08s, border-bottom-width 0.08s;
   -webkit-tap-highlight-color: transparent;
 }
 
 .dpad-btn:active {
   transform: translateY(3px);
-  box-shadow: 0 1px 0 #312e81, 0 2px 6px rgba(0,0,0,0.3);
+  border-bottom-width: 1px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.45);
+}
+
+.dpad-btn:disabled {
+  opacity: 0.30;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .dpad-btn:disabled {

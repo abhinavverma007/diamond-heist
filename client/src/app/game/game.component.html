@@ -2,7 +2,8 @@
      💎 Diamond Heist: Mini Arenas
      Full-screen, zero-scroll, mobile-first game shell
      ══════════════════════════════════════════════════════════════ -->
-<div class="h-screen w-screen overflow-hidden flex flex-col relative space-bg">
+<div class="h-screen w-screen overflow-hidden flex flex-col relative space-bg"
+     [class.game-bg]="currentView === 'game'">
 
 
   <!-- ════════════════════════════════════════════════════════
@@ -15,16 +16,16 @@
     <div class="text-center mb-2">
       <div class="text-6xl float-bounce mb-1">💎</div>
       <h1 class="text-3xl font-black text-transparent bg-clip-text
-                 bg-gradient-to-r from-yellow-300 via-pink-400 to-purple-400
+                 bg-gradient-to-r from-yellow-300 via-amber-400 to-orange-500
                  tracking-tight drop-shadow">
         Diamond Heist
       </h1>
-      <p class="text-purple-300 text-sm font-bold mt-0.5">⚡ Mini Arenas ⚡</p>
+      <p class="text-amber-600 text-sm font-bold mt-0.5">⛏ Underground Heist ⛏</p>
     </div>
 
     <!-- Name input -->
     <div class="w-full max-w-xs">
-      <label class="text-purple-300 text-xs font-bold uppercase tracking-widest mb-1 block">
+      <label class="text-amber-500 text-xs font-bold uppercase tracking-widest mb-1 block">
         Your Name
       </label>
       <input
@@ -35,8 +36,8 @@
         autocomplete="off"
         autocapitalize="words"
         class="w-full px-4 py-3 rounded-2xl text-base font-bold
-               bg-white/10 border-2 border-purple-500 text-white
-               placeholder-purple-400 focus:outline-none focus:border-yellow-400
+               bg-white/10 border-2 border-amber-700 text-white
+               placeholder-amber-700 focus:outline-none focus:border-yellow-400
                focus:bg-white/15 transition-colors"
         style="user-select: text; -webkit-user-select: text;"
       />
@@ -60,14 +61,14 @@
 
     <!-- Divider -->
     <div class="flex items-center gap-3 w-full max-w-xs">
-      <div class="flex-1 h-px bg-purple-800"></div>
-      <span class="text-purple-500 text-xs font-black tracking-widest">OR</span>
-      <div class="flex-1 h-px bg-purple-800"></div>
+      <div class="flex-1 h-px" style="background:rgba(146,64,14,0.5);"></div>
+      <span class="text-amber-700 text-xs font-black tracking-widest">OR</span>
+      <div class="flex-1 h-px" style="background:rgba(146,64,14,0.5);"></div>
     </div>
 
     <!-- Join Room section -->
     <div class="w-full max-w-xs">
-      <label class="text-purple-300 text-xs font-bold uppercase tracking-widest mb-1 block">
+      <label class="text-amber-500 text-xs font-bold uppercase tracking-widest mb-1 block">
         Room Code
       </label>
       <input
@@ -115,16 +116,16 @@
 
     <div class="text-4xl float-bounce">💎</div>
     <h1 class="text-xl font-black text-transparent bg-clip-text
-               bg-gradient-to-r from-yellow-300 to-pink-400">
+               bg-gradient-to-r from-yellow-300 via-amber-400 to-orange-500">
       Diamond Heist
     </h1>
 
     <!-- Room code card -->
-    <div class="bg-white/10 backdrop-blur-sm border-2 border-purple-500 rounded-3xl
-                px-8 py-4 text-center w-full max-w-xs
-                shadow-lg shadow-purple-900/40">
-      <p class="text-purple-300 text-xs font-bold uppercase tracking-widest mb-1">
-        🏠 Room Code
+    <div class="backdrop-blur-sm border-2 rounded-3xl
+                px-8 py-4 text-center w-full max-w-xs"
+         style="background:rgba(30,14,4,0.75); border-color:rgba(180,83,9,0.70); box-shadow:0 8px 30px rgba(0,0,0,0.6);">
+      <p class="text-amber-500 text-xs font-bold uppercase tracking-widest mb-1">
+        ⛏ Room Code
       </p>
       <p class="text-4xl font-black text-yellow-400 tracking-[0.25em] font-mono">
         {{ roomCode }}
@@ -137,18 +138,19 @@
       </button>
     </div>
 
-    <p class="text-purple-400 text-xs font-bold text-center">
-      📱 Share this code with friends!
+    <p class="text-amber-600/80 text-xs font-bold text-center">
+      📱 Share this code with your crew!
     </p>
 
     <!-- Player list -->
-    <div class="w-full max-w-xs bg-white/8 border border-purple-700 rounded-2xl overflow-hidden">
-      <div class="flex items-center justify-between px-4 py-2
-                  bg-purple-900/50 border-b border-purple-700">
-        <span class="text-purple-300 text-xs font-black uppercase tracking-widest">
-          👥 Players
+    <div class="w-full max-w-xs border rounded-2xl overflow-hidden"
+         style="background:rgba(18,9,2,0.6); border-color:rgba(146,64,14,0.45);">
+      <div class="flex items-center justify-between px-4 py-2 border-b"
+           style="background:rgba(46,20,4,0.65); border-color:rgba(146,64,14,0.40);">
+        <span class="text-amber-500 text-xs font-black uppercase tracking-widest">
+          ⛏ Miners
         </span>
-        <span class="text-purple-400 text-xs font-bold">
+        <span class="text-amber-600/80 text-xs font-bold">
           {{ playerList.length }} joined
         </span>
       </div>
@@ -200,9 +202,10 @@
 
     <!-- Session leaderboard (shown after game 1+ completes) -->
     <div *ngIf="gamesPlayed > 0 && sessionLeaderboard.length > 0"
-         class="w-full max-w-xs bg-white/8 border border-purple-700 rounded-2xl overflow-hidden">
-      <div class="flex items-center justify-between px-4 py-2
-                  bg-purple-900/50 border-b border-purple-700">
+         class="w-full max-w-xs rounded-2xl overflow-hidden"
+         style="background:rgba(18,9,2,0.6); border:1px solid rgba(146,64,14,0.45);">
+      <div class="flex items-center justify-between px-4 py-2 border-b"
+           style="background:rgba(46,20,4,0.65); border-color:rgba(146,64,14,0.40);">
         <span class="text-purple-300 text-xs font-black uppercase tracking-widest">
           📊 Session Points
         </span>
@@ -315,7 +318,8 @@
 
     <!-- ── Status bar ───────────────────────────────────────── -->
     <div class="flex-shrink-0 flex items-center justify-between px-3 py-1.5
-                bg-purple-950/80 border-b-2 border-purple-700 pt-safe">
+                border-b-2 pt-safe"
+         style="background:rgba(12,8,4,0.92); border-color:rgba(180,83,9,0.55);">
 
       <!-- Room code -->
       <span class="text-yellow-400 font-black font-mono text-xs tracking-widest">
@@ -337,7 +341,7 @@
           Pick a direction!
         </span>
         <span *ngIf="!isMyTurn && !showWinnerModal"
-              class="text-purple-300 font-bold text-xs">
+              class="text-amber-400/80 font-bold text-xs">
           {{ currentPlayerName }}'s turn
         </span>
       </div>
@@ -368,8 +372,8 @@
     </div>
 
     <!-- ── Diamond counter strip + reaction trigger ────────────── -->
-    <div class="flex-shrink-0 relative flex items-center justify-between px-3 py-1
-                bg-purple-950/60 border-b border-purple-800/60">
+    <div class="flex-shrink-0 relative flex items-center justify-between px-3 py-1 border-b"
+         style="background:rgba(10,6,3,0.75); border-color:rgba(146,64,14,0.35);">
 
       <!-- Diamonds -->
       <div class="flex items-center gap-1.5">
@@ -397,24 +401,25 @@
 
       <!-- Reaction panel (drops down from this strip) -->
       <div *ngIf="isReactionPanelOpen"
-           class="absolute top-full right-0 z-30 w-56
-                  bg-[#1a0a3e] border border-purple-600 rounded-bl-2xl rounded-br-2xl
-                  shadow-2xl shadow-purple-900/60 overflow-hidden reaction-panel-drop">
+           class="absolute top-full right-0 z-30 w-56 rounded-bl-2xl rounded-br-2xl
+                  overflow-hidden reaction-panel-drop"
+           style="background:#130b04; border:1px solid rgba(180,83,9,0.55); box-shadow:0 16px 40px rgba(0,0,0,0.85);">
 
         <!-- Emoji grid -->
         <div class="p-2 grid grid-cols-8 gap-0.5">
           <button
             *ngFor="let e of EMOJI_OPTIONS"
             (click)="sendReaction(e)"
-            class="flex items-center justify-center h-8 text-xl rounded-lg
-                   bg-purple-900/60 hover:bg-purple-700 transition-colors"
-            style="touch-action: manipulation;">
+            class="flex items-center justify-center h-8 text-xl rounded-lg transition-colors"
+            style="background:rgba(92,45,0,0.5); touch-action: manipulation;"
+            onmouseover="this.style.background='rgba(146,64,14,0.7)'"
+            onmouseout="this.style.background='rgba(92,45,0,0.5)'">
             {{ e }}
           </button>
         </div>
 
         <!-- Divider -->
-        <div class="h-px bg-purple-800 mx-2"></div>
+        <div class="h-px mx-2" style="background:rgba(180,83,9,0.4);"></div>
 
         <!-- Funny text options -->
         <div class="p-2 flex flex-col gap-1">
@@ -422,9 +427,8 @@
             *ngFor="let t of TAGLINE_OPTIONS"
             (click)="sendReaction(t)"
             class="w-full px-2 py-1.5 rounded-xl text-left text-[10px] font-bold
-                   text-purple-300 bg-purple-900/60 hover:bg-purple-700 transition-colors
-                   leading-tight"
-            style="touch-action: manipulation;">
+                   text-amber-400/80 transition-colors leading-tight"
+            style="background:rgba(92,45,0,0.5); touch-action: manipulation;">
             "{{ t }}"
           </button>
         </div>
@@ -507,7 +511,8 @@
     </div>
 
     <!-- ── Controls bar ──────────────────────────────────────── -->
-    <div class="flex-shrink-0 bg-purple-950/90 border-t-2 border-purple-700 pb-safe">
+    <div class="flex-shrink-0 border-t-2 pb-safe"
+         style="background:rgba(10,6,2,0.97); border-color:rgba(180,83,9,0.55);">
 
       <div class="flex items-center justify-between px-3 py-2 gap-2">
 
@@ -556,11 +561,7 @@
           <button
             *ngIf="canRoll"
             (click)="rollDice()"
-            class="btn-primary px-7 py-3.5 rounded-2xl text-base
-                   bg-gradient-to-br from-yellow-400 via-orange-400 to-pink-500
-                   text-white font-black shadow-xl shadow-orange-900/50
-                   border-b-4 border-orange-600"
-            style="touch-action: manipulation;">
+            class="btn-roll">
             🎲 Roll Dice!
           </button>
 
@@ -585,10 +586,11 @@
                 {{ getDiceFace(currentRoll) }}
               </div>
               <div class="text-left">
-                <p class="text-yellow-300 font-black text-sm leading-none">
+                <p class="font-black text-sm leading-none"
+                   style="color:#fde68a; text-shadow:0 0 10px rgba(251,191,36,0.5);">
                   You rolled {{ currentRoll }}!
                 </p>
-                <p class="text-purple-300 font-bold text-xs mt-0.5">
+                <p class="font-bold text-xs mt-0.5" style="color:rgba(217,119,6,0.75);">
                   Pick a direction ↓
                 </p>
               </div>
@@ -610,9 +612,11 @@
                       (click)="move('LEFT')"
                       style="touch-action: manipulation;"
                       aria-label="Move left">⬅</button>
-              <div class="flex items-center justify-center rounded-lg
-                          bg-purple-800 border border-purple-600
-                          text-yellow-300 font-black text-sm">
+              <div class="flex items-center justify-center rounded-lg font-black text-sm"
+                   style="background:radial-gradient(circle,#78350f,#1e0d00);
+                          border:1.5px solid rgba(251,191,36,0.45);
+                          color:#fde68a;
+                          box-shadow:inset 0 1px 2px rgba(251,191,36,0.2);">
                 {{ currentRoll }}
               </div>
               <button class="dpad-btn"
@@ -640,7 +644,7 @@
                  class="dice-box" style="width:48px;height:48px;font-size:1.8rem;">
               {{ getDiceFace(currentRoll) }}
             </div>
-            <span class="text-purple-400 font-bold text-xs">
+            <span class="text-amber-600/80 font-bold text-xs">
               ⏳ {{ currentPlayerName }} is playing…
             </span>
           </div>
@@ -817,8 +821,8 @@
        class="fixed inset-0 z-50 flex items-end"
        (click)="closeCustomizer()">
 
-    <div class="w-full max-h-[78vh] bg-[#1a0a3e] border-t-2 border-purple-500
-                rounded-t-3xl overflow-y-auto pb-safe customizer-sheet"
+    <div class="w-full max-h-[78vh] rounded-t-3xl overflow-y-auto pb-safe customizer-sheet"
+         style="background:#130b04; border-top: 2px solid rgba(180,83,9,0.65);"
          (click)="$event.stopPropagation()">
 
       <!-- Drag handle -->
