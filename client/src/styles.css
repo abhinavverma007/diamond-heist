@@ -37,6 +37,18 @@ input, textarea {
 .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
 .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
 
+/* ── Large mode – bigger controls for comfortable play ─────────────── */
+.large-mode .dpad {
+  grid-template-columns: repeat(3, 3.8rem);
+  grid-template-rows:    repeat(3, 3.8rem);
+  gap: 6px;
+}
+.large-mode .dpad-btn        { font-size: 1.7rem; }
+.large-mode .btn-roll        { padding: 18px 38px; font-size: 1.2rem; border-radius: 24px; }
+.large-mode .dice-box        { width: 82px; height: 82px; font-size: 3.1rem; border-radius: 18px; }
+.large-mode .turn-timer      { width: 42px; height: 42px; }
+.large-mode .turn-timer > span { font-size: 0.72rem; }
+
 /* ── Underground mine background ────────────────────────────────────── */
 /* Deep in Earth's mantle – dark rock with glowing ore veins & lava heat */
 .space-bg {

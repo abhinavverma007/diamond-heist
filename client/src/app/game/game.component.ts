@@ -102,23 +102,48 @@ export class GameComponent implements OnInit, OnDestroy {
   stepsRemaining = 0;
 
   // ── Turn timer ───────────────────────────────────────────────────────────────
-  readonly TURN_SECONDS = 45;
+  turnDuration = 60;  // seconds; 0 = disabled; set from server on game_started
   turnTimeLeft = 0;
   private turnCountdownInterval: ReturnType<typeof setInterval> | null = null;
+  private warnedAt10 = false;
 
-  get timerPct(): number { return (this.turnTimeLeft / this.TURN_SECONDS) * 100; }
+  // Host lobby picker: 30s / 60s / 90s / Off
+  readonly turnDurationOptions = [
+    { label: '30s', value: 30 },
+    { label: '60s', value: 60 },
+    { label: '90s', value: 90 },
+    { label: 'Off', value: 0  },
+  ];
+  turnDurationInput = 60;
+
+  get timerPct(): number { return this.turnDuration > 0 ? (this.turnTimeLeft / this.turnDuration) * 100 : 0; }
   get timerColor(): string {
-    if (this.turnTimeLeft > 20) return '#22c55e';
-    if (this.turnTimeLeft > 10) return '#f59e0b';
+    const third = this.turnDuration / 3;
+    if (this.turnTimeLeft > third * 2) return '#22c55e';
+    if (this.turnTimeLeft > third)     return '#f59e0b';
     return '#ef4444';
   }
 
+  // Large-mode toggle (persisted in SoundService localStorage)
+  get isLargeMode(): boolean { return this.sound.isLargeMode; }
+  toggleLargeMode(): void    { this.sound.toggleLargeMode(); this.cdr.markForCheck(); }
+
+  // Voice toggle
+  get isVoiceOn(): boolean { return this.sound.isVoiceOn; }
+  toggleVoice(): void      { this.sound.toggleVoice(); this.cdr.markForCheck(); }
+
   private startTurnCountdown(): void {
     this.stopTurnCountdown();
-    this.turnTimeLeft = this.TURN_SECONDS;
+    if (this.turnDuration === 0) return; // timer disabled
+    this.turnTimeLeft = this.turnDuration;
+    this.warnedAt10   = false;
     this.cdr.markForCheck();
     this.turnCountdownInterval = setInterval(() => {
       this.turnTimeLeft = Math.max(0, this.turnTimeLeft - 1);
+      if (this.turnTimeLeft === 10 && !this.warnedAt10) {
+        this.warnedAt10 = true;
+        this.sound.announceTimeWarning();
+      }
       if (this.turnTimeLeft === 0) this.stopTurnCountdown();
       this.cdr.markForCheck();
     }, 1000);
@@ -476,7 +501,12 @@ export class GameComponent implements OnInit, OnDestroy {
     this.isMoving        = false;
     if (turnChanged) {
       this.resetDiceState();
-      if (currentPlayerId === this.myId) this.sound.playYourTurn();
+      if (currentPlayerId === this.myId) {
+        this.sound.playYourTurn();
+        this.sound.announceYourTurn();
+      } else {
+        this.sound.announceTurn(players[currentPlayerId]?.name ?? '');
+      }
     }
 
     if (this.pendingWin) {
@@ -549,7 +579,7 @@ export class GameComponent implements OnInit, OnDestroy {
       });
 
     this.socketService
-      .on<{ players: Record<string, Player>; playerOrder: string[]; diamond: Point; diamondsRemaining: number; turnIndex: number; currentPlayerId: string; boxes: Box[]; sessionLeaderboard: SessionEntry[]; gamesPlayed: number }>('game_started')
+      .on<{ players: Record<string, Player>; playerOrder: string[]; diamond: Point; diamondsRemaining: number; turnIndex: number; currentPlayerId: string; currentPlayerName: string; boxes: Box[]; sessionLeaderboard: SessionEntry[]; gamesPlayed: number; turnDuration: number }>('game_started')
       .pipe(takeUntil(this.destroy$))
       .subscribe(data => {
         this.players = data.players; this.playerOrder = data.playerOrder;
@@ -561,11 +591,17 @@ export class GameComponent implements OnInit, OnDestroy {
         this.boxes = data.boxes ?? [];
         this.sessionLeaderboard = data.sessionLeaderboard ?? [];
         this.gamesPlayed = data.gamesPlayed ?? 0;
+        this.turnDuration = data.turnDuration ?? 60;
         this.isBoxRevealOpen = false;
         this.resetDiceState();
         this.startTurnCountdown();
         this.refreshGrid();
-        if (data.currentPlayerId === this.myId) this.sound.playYourTurn();
+        if (data.currentPlayerId === this.myId) {
+          this.sound.playYourTurn();
+          this.sound.announceYourTurn();
+        } else {
+          this.sound.announceTurn(data.currentPlayerName ?? '');
+        }
         this.cdr.markForCheck();
       });
 
@@ -609,6 +645,7 @@ export class GameComponent implements OnInit, OnDestroy {
         if (data.sessionLeaderboard) this.sessionLeaderboard = data.sessionLeaderboard;
 
         this.sound.playDiamondClaim();
+        this.sound.announceDiamond(data.winner.name);
         if (this.claimToastTimer) clearTimeout(this.claimToastTimer);
         const ordinal = ['1st', '2nd', '3rd', '4th', '5th', '6th'][data.winner.place - 1] ?? `#${data.winner.place}`;
         const left = data.remainingCount > 0 ? ` (${data.remainingCount} left)` : '';
@@ -680,7 +717,7 @@ export class GameComponent implements OnInit, OnDestroy {
 
     // ── Reconnected: restore full state after socket drop ────────────────────
     this.socketService
-      .on<{ playerId: string; roomCode: string; isHost: boolean; players: Record<string, Player>; playerOrder: string[]; gameStarted: boolean; diamond: Point | null; diamondsRemaining: number; turnIndex: number; currentPlayerId: string; stepsRemaining: number; currentRoll: number; winners: Winner[]; boxes: Box[]; sessionLeaderboard: SessionEntry[]; gamesPlayed: number }>('reconnected')
+      .on<{ playerId: string; roomCode: string; isHost: boolean; players: Record<string, Player>; playerOrder: string[]; gameStarted: boolean; diamond: Point | null; diamondsRemaining: number; turnIndex: number; currentPlayerId: string; stepsRemaining: number; currentRoll: number; winners: Winner[]; boxes: Box[]; sessionLeaderboard: SessionEntry[]; gamesPlayed: number; turnDuration: number }>('reconnected')
       .pipe(takeUntil(this.destroy$))
       .subscribe(data => {
         this.myId = data.playerId; this.roomCode = data.roomCode; this.isHost = data.isHost;
@@ -689,6 +726,7 @@ export class GameComponent implements OnInit, OnDestroy {
         this.boxes = data.boxes ?? [];
         this.sessionLeaderboard = data.sessionLeaderboard ?? [];
         this.gamesPlayed = data.gamesPlayed ?? 0;
+        this.turnDuration = data.turnDuration ?? 60;
 
         if (data.gameStarted) {
           this.diamond = data.diamond; this.diamondsRemaining = data.diamondsRemaining;
@@ -717,7 +755,13 @@ export class GameComponent implements OnInit, OnDestroy {
         this.isMoving        = false;
         this.resetDiceState();
         this.startTurnCountdown();
-        if (data.currentPlayerId === this.myId) this.sound.playYourTurn();
+        this.sound.announceSkipped(data.skippedPlayerName);
+        if (data.currentPlayerId === this.myId) {
+          this.sound.playYourTurn();
+          this.sound.announceYourTurn();
+        } else {
+          this.sound.announceTurn(data.currentPlayerName);
+        }
         this.refreshGrid();
         this.cdr.markForCheck();
       });
@@ -743,6 +787,7 @@ export class GameComponent implements OnInit, OnDestroy {
               openerName: data.openerName,
             };
             this.isBoxRevealOpen = true;
+            this.sound.announceBox(`${data.openerName}: ${data.label}`);
             this.cdr.markForCheck();
             this.boxRevealTimer = setTimeout(() => {
               this.isBoxRevealOpen = false;
@@ -852,7 +897,7 @@ export class GameComponent implements OnInit, OnDestroy {
 
   startGame(): void {
     if (!this.isHost || !this.allPlayersReady) return;
-    this.socketService.emit('start_game', { roomCode: this.roomCode, diamondCount: this.diamondCountInput });
+    this.socketService.emit('start_game', { roomCode: this.roomCode, diamondCount: this.diamondCountInput, turnDuration: this.turnDurationInput });
   }
 
   rollDice(): void {

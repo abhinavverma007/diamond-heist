@@ -7,9 +7,13 @@ export class SoundService {
 
   private readonly muteKey   = 'dh_muted';
   private readonly hapticKey = 'dh_haptic_off';
+  private readonly voiceKey  = 'dh_voice_on';
+  private readonly largeKey  = 'dh_large_mode';
 
   get isMuted(): boolean     { return localStorage.getItem(this.muteKey)   === '1'; }
   get isHapticOff(): boolean { return localStorage.getItem(this.hapticKey) === '1'; }
+  get isVoiceOn(): boolean   { return localStorage.getItem(this.voiceKey)  !== '0'; } // default on
+  get isLargeMode(): boolean { return localStorage.getItem(this.largeKey)  === '1'; }
 
   toggleMute(): boolean {
     const next = !this.isMuted;
@@ -22,6 +26,43 @@ export class SoundService {
     localStorage.setItem(this.hapticKey, next ? '1' : '0');
     return next;
   }
+
+  toggleVoice(): boolean {
+    const next = !this.isVoiceOn;
+    localStorage.setItem(this.voiceKey, next ? '1' : '0');
+    if (!next) this.cancelSpeech();
+    return next;
+  }
+
+  toggleLargeMode(): boolean {
+    const next = !this.isLargeMode;
+    localStorage.setItem(this.largeKey, next ? '1' : '0');
+    return next;
+  }
+
+  // ── Voice announcements via Web Speech API ──────────────────────────────────
+
+  private speak(text: string, interrupt = false): void {
+    if (!this.isVoiceOn) return;
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    if (interrupt) window.speechSynthesis.cancel();
+    const u     = new SpeechSynthesisUtterance(text);
+    u.rate      = 0.95;
+    u.pitch     = 1.0;
+    u.volume    = 1.0;
+    window.speechSynthesis.speak(u);
+  }
+
+  cancelSpeech(): void {
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+  }
+
+  announceYourTurn(): void              { this.speak('Your turn!', true); }
+  announceTurn(name: string): void      { this.speak(`${name}'s turn`); }
+  announceDiamond(name: string): void   { this.speak(`${name} claimed the diamond!`, true); }
+  announceSkipped(name: string): void   { this.speak(`${name} was skipped`, true); }
+  announceTimeWarning(): void           { this.speak('10 seconds!', true); }
+  announceBox(label: string): void      { this.speak(label); }
 
   /** Call from any user-gesture handler to unlock AudioContext on iOS/Safari. */
   unlock(): void { this.getCtx(); }

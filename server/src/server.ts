@@ -82,6 +82,7 @@ interface RoomState {
   boxes: Box[];
   sessionScores: Record<string, number>; // keyed by sessionId
   gamesPlayed: number;
+  turnDuration: number;                  // seconds per turn; 0 = disabled
   turnTimerHandle: ReturnType<typeof setTimeout> | null;
 }
 
@@ -399,11 +400,10 @@ function clearTurnTimer(room: RoomState): void {
   }
 }
 
-const TURN_SECONDS = 45;
-
 function startTurnTimer(roomCode: string, room: RoomState): void {
   clearTurnTimer(room);
   if (!room.gameStarted || room.playerOrder.length === 0) return;
+  if (room.turnDuration === 0) return; // timer disabled by host
 
   room.turnTimerHandle = setTimeout(() => {
     room.turnTimerHandle = null;
@@ -428,7 +428,7 @@ function startTurnTimer(roomCode: string, room: RoomState): void {
 
     // Restart timer for the next player
     startTurnTimer(roomCode, room);
-  }, TURN_SECONDS * 1000);
+  }, room.turnDuration * 1000);
 }
 
 // ─── Socket handlers ──────────────────────────────────────────────────────────
@@ -468,6 +468,7 @@ io.on('connection', (socket: Socket) => {
       gameStarted: false,
       winners: [],
       boxes: [],
+      turnDuration: 60,
       turnTimerHandle: null,
       sessionScores: {},
       gamesPlayed: 0,
@@ -542,7 +543,7 @@ io.on('connection', (socket: Socket) => {
 
   // ── Start Game ────────────────────────────────────────────────────────────
 
-  socket.on('start_game', ({ roomCode, diamondCount }: { roomCode: string; diamondCount?: number }) => {
+  socket.on('start_game', ({ roomCode, diamondCount, turnDuration }: { roomCode: string; diamondCount?: number; turnDuration?: number }) => {
     const room = rooms[roomCode];
     if (!room) return;
 
@@ -565,6 +566,8 @@ io.on('connection', (socket: Socket) => {
     }
 
     const count = Math.min(Math.max(1, diamondCount ?? 1), 6);
+    // 0 = disabled; clamp valid values to 15–180 s
+    room.turnDuration = turnDuration === 0 ? 0 : Math.min(180, Math.max(15, turnDuration ?? 60));
     room.gameStarted = true;
     room.winners = [];
     room.turnIndex = 0;
@@ -589,6 +592,7 @@ io.on('connection', (socket: Socket) => {
       boxes: room.boxes.map(b => ({ id: b.id, pos: b.pos })),
       sessionLeaderboard: getSessionLeaderboard(room),
       gamesPlayed: room.gamesPlayed,
+      turnDuration: room.turnDuration,
     });
 
     startTurnTimer(roomCode, room);
@@ -942,6 +946,7 @@ io.on('connection', (socket: Socket) => {
       boxes: room.boxes.map(b => ({ id: b.id, pos: b.pos })),
       sessionLeaderboard: getSessionLeaderboard(room),
       gamesPlayed: room.gamesPlayed,
+      turnDuration: room.turnDuration,
     });
 
     socket.to(roomCode).emit('player_reconnected', {
