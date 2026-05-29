@@ -37,6 +37,81 @@ input, textarea {
 .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
 .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
 
+/* ── Landing page: feature cards ───────────────────────────────────── */
+.feature-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 12px;
+  border-radius: 20px;
+  background: rgba(20, 10, 2, 0.70);
+  border: 1.5px solid rgba(180, 83, 9, 0.40);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.55), inset 0 1px 0 rgba(251,191,36,0.08);
+  backdrop-filter: blur(6px);
+}
+
+.feature-card__icon {
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.feature-card__title {
+  font-size: 0.78rem;
+  font-weight: 900;
+  color: #fde68a;
+  line-height: 1.2;
+}
+
+.feature-card__body {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.50);
+  line-height: 1.4;
+}
+
+/* ── Landing page: how-to-play steps ───────────────────────────────── */
+.how-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(20, 10, 2, 0.60);
+  border: 1px solid rgba(146, 64, 14, 0.30);
+}
+
+.how-step__num {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #b45309, #451a03);
+  border: 1.5px solid rgba(251,191,36,0.50);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  font-weight: 900;
+  color: #fde68a;
+  box-shadow: 0 0 10px rgba(251,191,36,0.25);
+  font-family: 'Nunito', sans-serif;
+}
+
+.how-step__title {
+  font-size: 0.82rem;
+  font-weight: 900;
+  color: #fff;
+  margin-bottom: 3px;
+  line-height: 1.2;
+}
+
+.how-step__body {
+  font-size: 0.70rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.48);
+  line-height: 1.45;
+}
+
 /* ── Large mode – bigger controls for comfortable play ─────────────── */
 .large-mode .dpad {
   grid-template-columns: repeat(3, 3.8rem);
