@@ -110,6 +110,7 @@ export class GameComponent implements OnInit, OnDestroy {
   // Host lobby picker: 30s / 60s / 90s / Off
   readonly turnDurationOptions = [
     { label: '30s', value: 30 },
+    { label: '45s', value: 45 },
     { label: '60s', value: 60 },
     { label: '90s', value: 90 },
     { label: 'Off', value: 0  },
@@ -169,6 +170,11 @@ export class GameComponent implements OnInit, OnDestroy {
   boxRevealData: { emoji: string; label: string; pointsDelta: number; openerName: string } | null = null;
   private boxRevealTimer: ReturnType<typeof setTimeout> | null = null;
 
+  // ── Tracked short-lived timers (error toasts, hop animations, etc.) ──────────
+  // All ids pushed here are cleared in ngOnDestroy so destroyed components
+  // never execute stale callbacks or hold closures in memory.
+  private readonly pendingTimers: ReturnType<typeof setTimeout>[] = [];
+
   // ── Dice animation state ─────────────────────────────────────────────────────
   // 'idle'    → Roll button visible
   // 'rolling' → Dice shaking + cycling numbers
@@ -222,6 +228,8 @@ export class GameComponent implements OnInit, OnDestroy {
     if (this.claimToastTimer) clearTimeout(this.claimToastTimer);
     if (this.boxRevealTimer) clearTimeout(this.boxRevealTimer);
     this.stopTurnCountdown();
+    this.pendingTimers.forEach(id => clearTimeout(id));
+    this.pendingTimers.length = 0;
     this.socketService.disconnect();
   }
 
@@ -800,8 +808,10 @@ export class GameComponent implements OnInit, OnDestroy {
     this.socketService.on<{ message: string }>('reconnect_failed')
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
+        this.socketService.disconnect(); // release socket resources before resetting
         this.socketService.clearSession();
         this.currentView = 'setup'; this.isBusy = false;
+        this.stopTurnCountdown();
         this.cdr.markForCheck();
       });
 
@@ -811,7 +821,7 @@ export class GameComponent implements OnInit, OnDestroy {
       .subscribe(data => {
         this.players = data.players; this.playerOrder = data.playerOrder;
         this.errorMsg = `⚡ ${data.playerName} lost connection – waiting up to 60 s…`;
-        setTimeout(() => { this.errorMsg = ''; this.cdr.markForCheck(); }, 8000);
+        this.pendingTimers.push(setTimeout(() => { this.errorMsg = ''; this.cdr.markForCheck(); }, 8000));
         if (this.currentView === 'game') this.refreshGrid();
         this.cdr.markForCheck();
       });
@@ -822,7 +832,7 @@ export class GameComponent implements OnInit, OnDestroy {
       .subscribe(data => {
         this.players = data.players; this.playerOrder = data.playerOrder;
         this.errorMsg = `✅ ${data.playerName} reconnected!`;
-        setTimeout(() => { this.errorMsg = ''; this.cdr.markForCheck(); }, 3000);
+        this.pendingTimers.push(setTimeout(() => { this.errorMsg = ''; this.cdr.markForCheck(); }, 3000));
         if (this.currentView === 'game') this.refreshGrid();
         this.cdr.markForCheck();
       });
@@ -832,7 +842,7 @@ export class GameComponent implements OnInit, OnDestroy {
       .subscribe(data => {
         this.errorMsg = data.message; this.isBusy = false;
         this.cdr.markForCheck();
-        setTimeout(() => { this.errorMsg = ''; this.cdr.markForCheck(); }, 4000);
+        this.pendingTimers.push(setTimeout(() => { this.errorMsg = ''; this.cdr.markForCheck(); }, 4000));
       });
 
     this.socketService
@@ -846,10 +856,10 @@ export class GameComponent implements OnInit, OnDestroy {
           { id, content: data.content, x, isEmoji: data.isEmoji, senderName: data.senderName },
         ];
         this.cdr.markForCheck();
-        setTimeout(() => {
+        this.pendingTimers.push(setTimeout(() => {
           this.activeReactions = this.activeReactions.filter(r => r.id !== id);
           this.cdr.markForCheck();
-        }, 3200); // slightly longer than the 3s CSS animation
+        }, 3200)); // slightly longer than the 3s CSS animation
       });
 
     this.socketService.on<{ message: string }>('game_error')
@@ -857,7 +867,7 @@ export class GameComponent implements OnInit, OnDestroy {
       .subscribe(data => {
         this.errorMsg = data.message;
         this.cdr.markForCheck();
-        setTimeout(() => { this.errorMsg = ''; this.cdr.markForCheck(); }, 3000);
+        this.pendingTimers.push(setTimeout(() => { this.errorMsg = ''; this.cdr.markForCheck(); }, 3000));
       });
   }
 

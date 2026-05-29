@@ -84,6 +84,7 @@ interface RoomState {
   gamesPlayed: number;
   turnDuration: number;                  // seconds per turn; 0 = disabled
   turnTimerHandle: ReturnType<typeof setTimeout> | null;
+  lastActivityAt: number;                // unix ms – for TTL eviction
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -136,6 +137,26 @@ const rooms: Record<string, RoomState> = {};
 
 // Keyed by sessionId – cleared when player reconnects or timer fires
 const disconnectTimers: Record<string, ReturnType<typeof setTimeout>> = {};
+
+// ─── Room TTL eviction ────────────────────────────────────────────────────────
+// Runs every 10 min; deletes any room with no activity for 2 hours.
+// Prevents heap accumulation from abandoned rooms where all players dropped
+// without triggering the normal disconnect → grace-timer → removal flow.
+const ROOM_TTL_MS       = 2 * 60 * 60 * 1000; // 2 hours
+const ROOM_TTL_CHECK_MS =     10 * 60 * 1000;  // check every 10 min
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [code, room] of Object.entries(rooms)) {
+    if (now - room.lastActivityAt > ROOM_TTL_MS) {
+      clearTurnTimer(room);
+      io.to(code).emit('room_expired', { message: 'Room closed after 2 hours of inactivity.' });
+      io.in(code).disconnectSockets(true);
+      delete rooms[code];
+      console.log(`[Room ${code}] TTL evicted – inactive for 2 h`);
+    }
+  }
+}, ROOM_TTL_CHECK_MS).unref(); // .unref() so this timer doesn't keep the process alive alone
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -340,12 +361,18 @@ function removePlayerFromRoom(roomCode: string, playerId: string): void {
   const room = rooms[roomCode];
   if (!room || !room.players[playerId]) return;
 
-  const wasHost = room.players[playerId].isHost;
-  const leavingIdx = room.playerOrder.indexOf(playerId);
+  const wasHost     = room.players[playerId].isHost;
+  const leavingIdx  = room.playerOrder.indexOf(playerId);
+  const sessionId   = room.players[playerId].sessionId;
+
+  // Remove orphaned score entry so sessionScores doesn't grow unboundedly
+  delete room.sessionScores[sessionId];
+
   delete room.players[playerId];
   room.playerOrder = room.playerOrder.filter(id => id !== playerId);
 
   if (room.playerOrder.length === 0) {
+    clearTurnTimer(room); // prevent dangling closure after room is gone
     delete rooms[roomCode];
     console.log(`[Room ${roomCode}] Empty – deleted`);
     return;
@@ -470,6 +497,7 @@ io.on('connection', (socket: Socket) => {
       boxes: [],
       turnDuration: 60,
       turnTimerHandle: null,
+      lastActivityAt: Date.now(),
       sessionScores: {},
       gamesPlayed: 0,
     };
@@ -521,6 +549,7 @@ io.on('connection', (socket: Socket) => {
 
     room.players[socket.id] = player;
     room.playerOrder.push(socket.id);
+    room.lastActivityAt = Date.now();
 
     socket.join(code);
 
@@ -634,6 +663,7 @@ io.on('connection', (socket: Socket) => {
       return;
     }
 
+    room.lastActivityAt = Date.now();
     const roll = Math.floor(Math.random() * 6) + 1;
     room.currentRoll = roll;
     room.stepsRemaining = roll;
@@ -696,6 +726,7 @@ io.on('connection', (socket: Socket) => {
     player.x = nx;
     player.y = ny;
     room.stepsRemaining = 0;
+    room.lastActivityAt = Date.now();
 
     // Player moved – cancel the running turn timer immediately
     clearTurnTimer(room);
