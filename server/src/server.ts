@@ -40,12 +40,14 @@ interface Player {
   reactionAt: number; // unix ms – for rate limiting reactions
 }
 
-type BoxOutcome = 'warp_back' | 'points_jackpot' | 'dud' | 'bomb';
+type BoxOutcome = 'warp_back' | 'points_jackpot' | 'dud' | 'bomb' | 'steal_points';
 
 interface Box {
   id: number;
   pos: Point;
-  // outcome is randomized at open-time, not stored
+  // outcome is only pre-set for the guaranteed steal_points box;
+  // all other boxes randomize from BOX_OUTCOME_POOL at open-time
+  outcome?: BoxOutcome;
 }
 
 interface SessionEntry {
@@ -231,6 +233,13 @@ function spawnBoxes(room: RoomState): void {
       }
     }
   }
+
+  // Guarantee exactly one steal_points box per game – pre-assign to a random box
+  if (boxes.length > 0) {
+    const idx = Math.floor(Math.random() * boxes.length);
+    boxes[idx].outcome = 'steal_points';
+  }
+
   room.boxes = boxes;
 }
 
@@ -246,38 +255,54 @@ function openBox(
   // Remove from board immediately
   room.boxes = room.boxes.filter(b => b.id !== box.id);
 
-  // Randomize outcome at open-time so each box is a fresh roll
-  const outcome = BOX_OUTCOME_POOL[Math.floor(Math.random() * BOX_OUTCOME_POOL.length)];
+  // Use the pre-assigned outcome (steal_points) if present; otherwise fresh random roll
+  const outcome: BoxOutcome = box.outcome ?? BOX_OUTCOME_POOL[Math.floor(Math.random() * BOX_OUTCOME_POOL.length)];
 
-  // Base 15 pts for opening any box
   const sid = player.sessionId;
-  room.sessionScores[sid] = (room.sessionScores[sid] ?? 0) + 15;
-  let pointsDelta = 15;
-
+  const current = room.sessionScores[sid] ?? 0;
+  let pointsDelta = 0;
   let label = '';
   let emoji = '';
 
   switch (outcome) {
+    case 'steal_points': {
+      const others = room.playerOrder.filter(
+        id => id !== playerId && !room.players[id]?.disconnected,
+      );
+      const gain = others.length * 10;
+      others.forEach(id => {
+        const p = room.players[id];
+        if (p) room.sessionScores[p.sessionId] = (room.sessionScores[p.sessionId] ?? 0) - 10;
+      });
+      room.sessionScores[sid] = current + gain;
+      pointsDelta = gain;
+      label = `Stole 10 pts from ${others.length} player${others.length !== 1 ? 's' : ''}!`;
+      emoji = '💰';
+      break;
+    }
     case 'warp_back':
       player.x = player.startX;
       player.y = player.startY;
-      label = 'Warped back to start!';
+      pointsDelta = -15;
+      room.sessionScores[sid] = current - 15;
+      label = 'Warped back! -15 pts';
       emoji = '↩️';
       break;
     case 'points_jackpot':
-      room.sessionScores[sid] += 50;
-      pointsDelta += 50;
+      pointsDelta = 50;
+      room.sessionScores[sid] = current + 50;
       label = '+50 Points Jackpot!';
       emoji = '💸';
       break;
     case 'bomb':
-      room.sessionScores[sid] = Math.max(0, (room.sessionScores[sid]) - 10);
-      pointsDelta -= 10;
-      label = '-10 Points! Ouch!';
+      pointsDelta = -20;
+      room.sessionScores[sid] = current - 20;
+      label = 'Bomb! -20 pts 💥';
       emoji = '💣';
       break;
     case 'dud':
     default:
+      pointsDelta = 0;
       label = 'Nothing… 😅';
       emoji = '💨';
       break;
