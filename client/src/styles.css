@@ -472,6 +472,51 @@ input, textarea {
   transform: none;
 }
 
+/* ── Turn timer ─────────────────────────────────────────────────────── */
+.turn-timer {
+  --pct: 100%;
+  --clr: #22c55e;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: conic-gradient(var(--clr) var(--pct), rgba(255,255,255,0.10) var(--pct));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.turn-timer::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: #0c0804;
+}
+
+.turn-timer > span {
+  position: relative;
+  z-index: 1;
+  font-size: 0.58rem;
+  font-weight: 900;
+  color: #fff;
+  line-height: 1;
+  font-family: 'Nunito', sans-serif;
+}
+
+.turn-timer--warn { --clr: #f59e0b; }
+
+.turn-timer--danger {
+  --clr: #ef4444;
+  animation: timer-danger-pulse 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes timer-danger-pulse {
+  from { box-shadow: 0 0  4px 1px rgba(239,68,68,0.40); }
+  to   { box-shadow: 0 0 10px 3px rgba(239,68,68,0.85); }
+}
+
 /* ── Buttons ────────────────────────────────────────────────────────── */
 .btn-primary {
   touch-action: manipulation;

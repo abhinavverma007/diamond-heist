@@ -389,15 +389,27 @@
         </span>
       </div>
 
-      <!-- Reaction trigger -->
-      <button
-        (click)="toggleReactionPanel()"
-        class="text-xl leading-none bg-transparent border-0 p-0.5 transition-transform"
-        [class.scale-125]="isReactionPanelOpen"
-        style="touch-action: manipulation;"
-        title="Send a reaction">
-        😄
-      </button>
+      <!-- Reaction trigger + turn timer stacked -->
+      <div class="flex flex-col items-center gap-0.5">
+        <button
+          (click)="toggleReactionPanel()"
+          class="text-xl leading-none bg-transparent border-0 p-0.5 transition-transform"
+          [class.scale-125]="isReactionPanelOpen"
+          style="touch-action: manipulation;"
+          title="Send a reaction">
+          😄
+        </button>
+
+        <!-- Circular countdown – visible to all players while game is active -->
+        <div *ngIf="turnTimeLeft > 0"
+             class="turn-timer"
+             [class.turn-timer--warn]="turnTimeLeft <= 20 && turnTimeLeft > 10"
+             [class.turn-timer--danger]="turnTimeLeft <= 10"
+             [style.--pct]="timerPct + '%'"
+             [style.--clr]="timerColor">
+          <span>{{ turnTimeLeft }}</span>
+        </div>
+      </div>
 
       <!-- Reaction panel (drops down from this strip) -->
       <div *ngIf="isReactionPanelOpen"

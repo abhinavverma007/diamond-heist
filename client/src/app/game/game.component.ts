@@ -101,6 +101,37 @@ export class GameComponent implements OnInit, OnDestroy {
   currentRoll = 0;
   stepsRemaining = 0;
 
+  // ── Turn timer ───────────────────────────────────────────────────────────────
+  readonly TURN_SECONDS = 45;
+  turnTimeLeft = 0;
+  private turnCountdownInterval: ReturnType<typeof setInterval> | null = null;
+
+  get timerPct(): number { return (this.turnTimeLeft / this.TURN_SECONDS) * 100; }
+  get timerColor(): string {
+    if (this.turnTimeLeft > 20) return '#22c55e';
+    if (this.turnTimeLeft > 10) return '#f59e0b';
+    return '#ef4444';
+  }
+
+  private startTurnCountdown(): void {
+    this.stopTurnCountdown();
+    this.turnTimeLeft = this.TURN_SECONDS;
+    this.cdr.markForCheck();
+    this.turnCountdownInterval = setInterval(() => {
+      this.turnTimeLeft = Math.max(0, this.turnTimeLeft - 1);
+      if (this.turnTimeLeft === 0) this.stopTurnCountdown();
+      this.cdr.markForCheck();
+    }, 1000);
+  }
+
+  private stopTurnCountdown(): void {
+    if (this.turnCountdownInterval) {
+      clearInterval(this.turnCountdownInterval);
+      this.turnCountdownInterval = null;
+    }
+    this.turnTimeLeft = 0;
+  }
+
   // ── Mystery boxes ────────────────────────────────────────────────────────────
   boxes: Box[] = [];
 
@@ -165,6 +196,7 @@ export class GameComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
     if (this.claimToastTimer) clearTimeout(this.claimToastTimer);
     if (this.boxRevealTimer) clearTimeout(this.boxRevealTimer);
+    this.stopTurnCountdown();
     this.socketService.disconnect();
   }
 
@@ -454,6 +486,9 @@ export class GameComponent implements OnInit, OnDestroy {
       this.showWinnerModal = true;
       this.isMoving = false;
       this.resetDiceState();
+      this.stopTurnCountdown();
+    } else if (turnChanged) {
+      this.startTurnCountdown();
     }
 
     this.refreshGrid();
@@ -528,6 +563,7 @@ export class GameComponent implements OnInit, OnDestroy {
         this.gamesPlayed = data.gamesPlayed ?? 0;
         this.isBoxRevealOpen = false;
         this.resetDiceState();
+        this.startTurnCountdown();
         this.refreshGrid();
         if (data.currentPlayerId === this.myId) this.sound.playYourTurn();
         this.cdr.markForCheck();
@@ -588,6 +624,7 @@ export class GameComponent implements OnInit, OnDestroy {
       .subscribe(data => {
         if (data.sessionLeaderboard) this.sessionLeaderboard = data.sessionLeaderboard;
         if (data.gamesPlayed) this.gamesPlayed = data.gamesPlayed;
+        this.stopTurnCountdown();
         if (this.hoppingPlayerId) {
           this.pendingWin = data;
         } else {
@@ -614,6 +651,7 @@ export class GameComponent implements OnInit, OnDestroy {
         if (data.sessionLeaderboard) this.sessionLeaderboard = data.sessionLeaderboard;
         if (data.gamesPlayed) this.gamesPlayed = data.gamesPlayed;
         this.isBoxRevealOpen = false;
+        this.stopTurnCountdown();
         this.resetDiceState();
         this.cdr.markForCheck();
       });
@@ -665,6 +703,22 @@ export class GameComponent implements OnInit, OnDestroy {
         } else {
           this.currentView = 'lobby';
         }
+        this.cdr.markForCheck();
+      });
+
+    this.socketService
+      .on<{ skippedPlayerId: string; skippedPlayerName: string; players: Record<string, Player>; stepsRemaining: number; turnIndex: number; currentPlayerId: string; currentPlayerName: string }>('turn_skipped')
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(data => {
+        this.players         = data.players;
+        this.stepsRemaining  = data.stepsRemaining;
+        this.turnIndex       = data.turnIndex;
+        this.currentPlayerId = data.currentPlayerId;
+        this.isMoving        = false;
+        this.resetDiceState();
+        this.startTurnCountdown();
+        if (data.currentPlayerId === this.myId) this.sound.playYourTurn();
+        this.refreshGrid();
         this.cdr.markForCheck();
       });
 
@@ -822,7 +876,8 @@ export class GameComponent implements OnInit, OnDestroy {
   /** One direction click moves ALL rolled steps – no step counting on the client. */
   move(direction: Direction): void {
     if (!this.canMove) return;
-    this.isMoving = true; // prevents double-tap until server confirms
+    this.stopTurnCountdown(); // cancel timer the instant the player commits to a direction
+    this.isMoving = true;     // prevents double-tap until server confirms
     this.socketService.emit('move_player', { roomCode: this.roomCode, direction });
     this.cdr.markForCheck();
   }
@@ -846,6 +901,7 @@ export class GameComponent implements OnInit, OnDestroy {
     this.hoppingPlayerId = '';
     this.boxes = []; this.sessionLeaderboard = []; this.gamesPlayed = 0;
     this.isBoxRevealOpen = false; this.boxRevealData = null;
+    this.stopTurnCountdown();
     this.resetDiceState();
     this.refreshGrid();
     this.cdr.markForCheck();
