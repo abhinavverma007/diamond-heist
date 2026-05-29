@@ -82,6 +82,7 @@ interface RoomState {
   boxes: Box[];
   sessionScores: Record<string, number>; // keyed by sessionId
   gamesPlayed: number;
+  turnTimerHandle: ReturnType<typeof setTimeout> | null;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -359,12 +360,14 @@ function removePlayerFromRoom(roomCode: string, playerId: string): void {
   // If the leaving player held the turn, the index now points to the next player
   // naturally (same index, shorter array). If it was the last slot, wrap to 0.
   if (room.gameStarted) {
+    clearTurnTimer(room);
     if (room.turnIndex >= room.playerOrder.length) {
       room.turnIndex = 0;
     } else if (leavingIdx < room.turnIndex) {
       // A player before the current turn was removed – shift index back by 1
       room.turnIndex = Math.max(0, room.turnIndex - 1);
     }
+    startTurnTimer(roomCode, room);
   }
 
   io.to(roomCode).emit('player_left', {
@@ -387,6 +390,45 @@ function advanceTurn(room: RoomState): void {
   room.turnIndex = next;
   room.currentRoll = 0;
   room.stepsRemaining = 0;
+}
+
+function clearTurnTimer(room: RoomState): void {
+  if (room.turnTimerHandle) {
+    clearTimeout(room.turnTimerHandle);
+    room.turnTimerHandle = null;
+  }
+}
+
+const TURN_SECONDS = 45;
+
+function startTurnTimer(roomCode: string, room: RoomState): void {
+  clearTurnTimer(room);
+  if (!room.gameStarted || room.playerOrder.length === 0) return;
+
+  room.turnTimerHandle = setTimeout(() => {
+    room.turnTimerHandle = null;
+    if (!room.gameStarted) return;
+
+    const skippedId  = room.playerOrder[room.turnIndex];
+    const skippedName = room.players[skippedId]?.name ?? '';
+    room.currentRoll   = 0;
+    room.stepsRemaining = 0;
+    advanceTurn(room);
+    const nextId = room.playerOrder[room.turnIndex];
+
+    io.to(roomCode).emit('turn_skipped', {
+      skippedPlayerId:   skippedId,
+      skippedPlayerName: skippedName,
+      players:           room.players,
+      stepsRemaining:    0,
+      turnIndex:         room.turnIndex,
+      currentPlayerId:   nextId,
+      currentPlayerName: room.players[nextId]?.name ?? '',
+    });
+
+    // Restart timer for the next player
+    startTurnTimer(roomCode, room);
+  }, TURN_SECONDS * 1000);
 }
 
 // ─── Socket handlers ──────────────────────────────────────────────────────────
@@ -426,6 +468,7 @@ io.on('connection', (socket: Socket) => {
       gameStarted: false,
       winners: [],
       boxes: [],
+      turnTimerHandle: null,
       sessionScores: {},
       gamesPlayed: 0,
     };
@@ -548,6 +591,7 @@ io.on('connection', (socket: Socket) => {
       gamesPlayed: room.gamesPlayed,
     });
 
+    startTurnTimer(roomCode, room);
     console.log(`[Room ${roomCode}] Game started – ${count} diamond(s) stacked at (${room.diamond.x},${room.diamond.y})`);
   });
 
@@ -649,6 +693,9 @@ io.on('connection', (socket: Socket) => {
     player.y = ny;
     room.stepsRemaining = 0;
 
+    // Player moved – cancel the running turn timer immediately
+    clearTurnTimer(room);
+
     // Win only when the player lands exactly on the diamond cell – passing through doesn't count
     const hitDiamond = room.diamond && nx === room.diamond.x && ny === room.diamond.y;
 
@@ -701,6 +748,7 @@ io.on('connection', (socket: Socket) => {
         });
         console.log(`[Room ${roomCode}] All diamonds claimed. Winners: ${room.winners.map(w => w.name).join(', ')}`);
       } else {
+        startTurnTimer(roomCode, room);
         console.log(`[Room ${roomCode}] "${player.name}" claimed diamond #${place} – ${room.diamondsRemaining} left on cell`);
       }
       return;
@@ -728,6 +776,7 @@ io.on('connection', (socket: Socket) => {
         turnChanged: true,
         sessionLeaderboard: getSessionLeaderboard(room),
       });
+      startTurnTimer(roomCode, room);
       console.log(`[Room ${roomCode}] "${player.name}" opened box → ${result.outcome} (${result.label})`);
       return;
     }
@@ -743,6 +792,7 @@ io.on('connection', (socket: Socket) => {
       currentPlayerName: room.players[nextId].name,
       turnChanged: true,
     });
+    startTurnTimer(roomCode, room);
   });
 
   // ── Play Again ────────────────────────────────────────────────────────────
@@ -752,6 +802,7 @@ io.on('connection', (socket: Socket) => {
     if (!room || room.gameStarted) return;
 
     // TODO: Clear previous player coordinates on game reset – re-index after any disconnects
+    clearTurnTimer(room);
     room.gameStarted = false;
     room.winners = [];
     room.currentRoll = 0;
