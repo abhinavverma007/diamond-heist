@@ -107,6 +107,47 @@ export class GameComponent implements OnInit, OnDestroy {
   private turnCountdownInterval: ReturnType<typeof setInterval> | null = null;
   private warnedAt10 = false;
 
+  // ── Overall game timer ───────────────────────────────────────────────────────
+  readonly gameDurationOptions = [
+    { label: 'Off',    value: 0    },
+    { label: '5 min',  value: 300  },
+    { label: '10 min', value: 600  },
+    { label: '20 min', value: 1200 },
+  ];
+  gameDurationInput = 0;   // host selection in lobby
+  gameDuration      = 0;   // received from server on game_started
+  gameStartedAt     = 0;   // unix ms
+  gameTimeLeft      = 0;   // seconds remaining (0 when disabled or expired)
+  isTimeUp          = false;
+  private gameTimerInterval: ReturnType<typeof setInterval> | null = null;
+
+  get gameTimeFormatted(): string {
+    const m = Math.floor(this.gameTimeLeft / 60);
+    const s = this.gameTimeLeft % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  }
+
+  private startGameCountdown(): void {
+    this.stopGameCountdown();
+    if (this.gameDuration === 0) return;
+    const tick = () => {
+      const elapsed = Math.floor((Date.now() - this.gameStartedAt) / 1000);
+      this.gameTimeLeft = Math.max(0, this.gameDuration - elapsed);
+      if (this.gameTimeLeft === 0) this.stopGameCountdown();
+      this.cdr.markForCheck();
+    };
+    tick();
+    this.gameTimerInterval = setInterval(tick, 1000);
+  }
+
+  private stopGameCountdown(): void {
+    if (this.gameTimerInterval) {
+      clearInterval(this.gameTimerInterval);
+      this.gameTimerInterval = null;
+    }
+    this.gameTimeLeft = 0;
+  }
+
   // Host lobby picker: 30s / 60s / 90s / Off
   readonly turnDurationOptions = [
     { label: '30s', value: 30 },
@@ -230,6 +271,7 @@ export class GameComponent implements OnInit, OnDestroy {
     this.stopTurnCountdown();
     this.pendingTimers.forEach(id => clearTimeout(id));
     this.pendingTimers.length = 0;
+    this.stopGameCountdown();
     this.socketService.disconnect();
   }
 
@@ -587,7 +629,7 @@ export class GameComponent implements OnInit, OnDestroy {
       });
 
     this.socketService
-      .on<{ players: Record<string, Player>; playerOrder: string[]; diamond: Point; diamondsRemaining: number; turnIndex: number; currentPlayerId: string; currentPlayerName: string; boxes: Box[]; sessionLeaderboard: SessionEntry[]; gamesPlayed: number; turnDuration: number }>('game_started')
+      .on<{ players: Record<string, Player>; playerOrder: string[]; diamond: Point; diamondsRemaining: number; turnIndex: number; currentPlayerId: string; currentPlayerName: string; boxes: Box[]; sessionLeaderboard: SessionEntry[]; gamesPlayed: number; turnDuration: number; gameDuration: number; gameStartedAt: number }>('game_started')
       .pipe(takeUntil(this.destroy$))
       .subscribe(data => {
         this.players = data.players; this.playerOrder = data.playerOrder;
@@ -599,10 +641,14 @@ export class GameComponent implements OnInit, OnDestroy {
         this.boxes = data.boxes ?? [];
         this.sessionLeaderboard = data.sessionLeaderboard ?? [];
         this.gamesPlayed = data.gamesPlayed ?? 0;
-        this.turnDuration = data.turnDuration ?? 60;
+        this.turnDuration  = data.turnDuration  ?? 60;
+        this.gameDuration  = data.gameDuration  ?? 0;
+        this.gameStartedAt = data.gameStartedAt ?? Date.now();
+        this.isTimeUp      = false;
         this.isBoxRevealOpen = false;
         this.resetDiceState();
         this.startTurnCountdown();
+        this.startGameCountdown();
         this.refreshGrid();
         if (data.currentPlayerId === this.myId) {
           this.sound.playYourTurn();
@@ -664,12 +710,14 @@ export class GameComponent implements OnInit, OnDestroy {
       });
 
     this.socketService
-      .on<{ winners: Winner[]; players: Record<string, Player>; sessionLeaderboard: SessionEntry[]; gamesPlayed: number }>('game_won')
+      .on<{ winners: Winner[]; players: Record<string, Player>; sessionLeaderboard: SessionEntry[]; gamesPlayed: number; timeUp?: boolean }>('game_won')
       .pipe(takeUntil(this.destroy$))
       .subscribe(data => {
         if (data.sessionLeaderboard) this.sessionLeaderboard = data.sessionLeaderboard;
         if (data.gamesPlayed) this.gamesPlayed = data.gamesPlayed;
+        if (data.timeUp) this.isTimeUp = true;
         this.stopTurnCountdown();
+        this.stopGameCountdown();
         if (this.hoppingPlayerId) {
           this.pendingWin = data;
         } else {
@@ -696,7 +744,9 @@ export class GameComponent implements OnInit, OnDestroy {
         if (data.sessionLeaderboard) this.sessionLeaderboard = data.sessionLeaderboard;
         if (data.gamesPlayed) this.gamesPlayed = data.gamesPlayed;
         this.isBoxRevealOpen = false;
+        this.isTimeUp = false;
         this.stopTurnCountdown();
+        this.stopGameCountdown();
         this.resetDiceState();
         this.cdr.markForCheck();
       });
@@ -725,7 +775,7 @@ export class GameComponent implements OnInit, OnDestroy {
 
     // ── Reconnected: restore full state after socket drop ────────────────────
     this.socketService
-      .on<{ playerId: string; roomCode: string; isHost: boolean; players: Record<string, Player>; playerOrder: string[]; gameStarted: boolean; diamond: Point | null; diamondsRemaining: number; turnIndex: number; currentPlayerId: string; stepsRemaining: number; currentRoll: number; winners: Winner[]; boxes: Box[]; sessionLeaderboard: SessionEntry[]; gamesPlayed: number; turnDuration: number }>('reconnected')
+      .on<{ playerId: string; roomCode: string; isHost: boolean; players: Record<string, Player>; playerOrder: string[]; gameStarted: boolean; diamond: Point | null; diamondsRemaining: number; turnIndex: number; currentPlayerId: string; stepsRemaining: number; currentRoll: number; winners: Winner[]; boxes: Box[]; sessionLeaderboard: SessionEntry[]; gamesPlayed: number; turnDuration: number; gameDuration: number; gameStartedAt: number }>('reconnected')
       .pipe(takeUntil(this.destroy$))
       .subscribe(data => {
         this.myId = data.playerId; this.roomCode = data.roomCode; this.isHost = data.isHost;
@@ -734,7 +784,9 @@ export class GameComponent implements OnInit, OnDestroy {
         this.boxes = data.boxes ?? [];
         this.sessionLeaderboard = data.sessionLeaderboard ?? [];
         this.gamesPlayed = data.gamesPlayed ?? 0;
-        this.turnDuration = data.turnDuration ?? 60;
+        this.turnDuration  = data.turnDuration  ?? 60;
+        this.gameDuration  = data.gameDuration  ?? 0;
+        this.gameStartedAt = data.gameStartedAt ?? 0;
 
         if (data.gameStarted) {
           this.diamond = data.diamond; this.diamondsRemaining = data.diamondsRemaining;
@@ -742,6 +794,7 @@ export class GameComponent implements OnInit, OnDestroy {
           this.stepsRemaining = data.stepsRemaining; this.currentRoll = data.currentRoll;
           this.currentView = 'game';
           if (data.stepsRemaining === 0) this.resetDiceState();
+          this.startGameCountdown();
           this.refreshGrid();
         } else if (data.winners.length > 0) {
           this.showWinnerModal = true; this.currentView = 'game';
@@ -905,9 +958,13 @@ export class GameComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  scrollToFeatures(): void {
+    document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
+  }
+
   startGame(): void {
     if (!this.isHost || !this.allPlayersReady) return;
-    this.socketService.emit('start_game', { roomCode: this.roomCode, diamondCount: this.diamondCountInput, turnDuration: this.turnDurationInput });
+    this.socketService.emit('start_game', { roomCode: this.roomCode, diamondCount: this.diamondCountInput, turnDuration: this.turnDurationInput, gameDuration: this.gameDurationInput });
   }
 
   rollDice(): void {
@@ -956,7 +1013,9 @@ export class GameComponent implements OnInit, OnDestroy {
     this.hoppingPlayerId = '';
     this.boxes = []; this.sessionLeaderboard = []; this.gamesPlayed = 0;
     this.isBoxRevealOpen = false; this.boxRevealData = null;
+    this.isTimeUp = false;
     this.stopTurnCountdown();
+    this.stopGameCountdown();
     this.resetDiceState();
     this.refreshGrid();
     this.cdr.markForCheck();

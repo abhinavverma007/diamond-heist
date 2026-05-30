@@ -39,32 +39,34 @@ input, textarea {
 .feature-card {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 14px 12px;
-  border-radius: 20px;
-  background: rgba(20, 10, 2, 0.70);
-  border: 1.5px solid rgba(180, 83, 9, 0.40);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.55), inset 0 1px 0 rgba(251,191,36,0.08);
-  backdrop-filter: blur(6px);
+  align-items: center;   /* centre everything including emoji */
+  text-align: center;
+  gap: 8px;
+  padding: 20px 14px;
+  border-radius: 22px;
+  background: rgba(20, 10, 2, 0.72);
+  border: 1.5px solid rgba(180, 83, 9, 0.45);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.60), inset 0 1px 0 rgba(251,191,36,0.10);
+  backdrop-filter: blur(8px);
 }
 
 .feature-card__icon {
-  font-size: 1.8rem;
+  font-size: 2.2rem;
   line-height: 1;
 }
 
 .feature-card__title {
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-weight: 900;
   color: #fde68a;
-  line-height: 1.2;
+  line-height: 1.25;
 }
 
 .feature-card__body {
-  font-size: 0.68rem;
+  font-size: 0.73rem;
   font-weight: 600;
-  color: rgba(255,255,255,0.50);
-  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.82);
+  line-height: 1.45;
 }
 
 /* ── Landing page: how-to-play steps ───────────────────────────────── */
@@ -123,149 +125,170 @@ input, textarea {
 .large-mode .turn-timer > span { font-size: 0.72rem; }
 
 /* ── Underground mine background ────────────────────────────────────── */
-/* Deep in Earth's mantle – dark rock with glowing ore veins & lava heat */
+/* Lava photo is the base; CSS gradients layer on top for rock walls     */
+/* ceiling darkness, and overall underground cave atmosphere.            */
 .space-bg {
-  background:
-    radial-gradient(ellipse 170% 55% at 50% 115%, rgba(194,65,12,0.50) 0%, transparent 62%),
-    radial-gradient(ellipse at 12% 100%, rgba(120,53,15,0.35) 0%, transparent 48%),
-    radial-gradient(ellipse at 88% 100%, rgba(153,27,27,0.30) 0%, transparent 48%),
-    radial-gradient(ellipse 60% 30% at 50% 0%,  rgba(8,6,3,0.85)   0%, transparent 100%),
-    linear-gradient(180deg, #080603 0%, #0e0a06 30%, #160d07 65%, #1c1008 100%);
+  background-image:
+    radial-gradient(ellipse 100% 35% at 50% 0%,  rgba(4,2,1,0.96)    0%, transparent 100%),
+    radial-gradient(ellipse  35% 100% at   0% 50%, rgba(2,1,0,0.88)   0%, transparent 80%),
+    radial-gradient(ellipse  35% 100% at 100% 50%, rgba(2,1,0,0.88)   0%, transparent 80%),
+    linear-gradient(180deg, rgba(4,2,1,0.70) 0%, rgba(8,4,2,0.45) 40%, rgba(12,6,3,0.30) 100%),
+    url('https://images.stockcake.com/public/8/5/b/85ba1ea6-a642-4461-9184-023423a2c12d_large/molten-earth-flows-stockcake.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   position: relative;
   overflow: hidden;
 }
 
-/* Floating ore dust & hot embers drifting upward */
-.space-bg::before,
+/* ── Lava flow layer 1 – large slow rivers ─────────────────────────── */
+/* Element is 30% bigger than the container so blobs stay visible        */
+/* while translating. transform animates on GPU – no jank.               */
+.space-bg::before {
+  content: '';
+  position: absolute;
+  inset: -15%;
+  pointer-events: none;
+  background-image:
+    /* Main lava river – bottom left */
+    radial-gradient(ellipse 55% 40% at 28% 88%, rgba(220,55,8,0.85)  0%, transparent 65%),
+    /* Main lava river – bottom right */
+    radial-gradient(ellipse 50% 38% at 75% 84%, rgba(190,45,6,0.75)  0%, transparent 62%),
+    /* Bright hot core – center */
+    radial-gradient(ellipse 30% 22% at 52% 92%, rgba(251,140,10,0.65) 0%, transparent 58%),
+    /* Wide base glow */
+    radial-gradient(ellipse 90% 30% at 50% 100%, rgba(160,30,5,0.55) 0%, transparent 55%),
+    /* Upper lava tendrils */
+    radial-gradient(ellipse 25% 20% at 15% 60%, rgba(180,50,8,0.40)  0%, transparent 55%),
+    radial-gradient(ellipse 20% 18% at 85% 55%, rgba(160,40,6,0.38)  0%, transparent 50%);
+  animation: lava-flow-1 11s ease-in-out infinite;
+  filter: blur(2px);
+}
+
+@keyframes lava-flow-1 {
+  0%   { transform: translate(  0%,   0%) scale(1.00); filter: blur(2px) brightness(0.90); }
+  20%  { transform: translate(  4%,  -6%) scale(1.04); filter: blur(1px) brightness(1.10); }
+  40%  { transform: translate( -5%,   3%) scale(0.97); filter: blur(3px) brightness(0.95); }
+  60%  { transform: translate(  6%,  -4%) scale(1.06); filter: blur(1px) brightness(1.08); }
+  80%  { transform: translate( -3%,   5%) scale(1.02); filter: blur(2px) brightness(0.92); }
+  100% { transform: translate(  0%,   0%) scale(1.00); filter: blur(2px) brightness(0.90); }
+}
+
+/* ── Lava flow layer 2 – faster smaller details ────────────────────── */
 .space-bg::after {
   content: '';
   position: absolute;
-  inset: 0;
+  inset: -15%;
   pointer-events: none;
   background-image:
-    radial-gradient(1.5px 1.5px at  8% 22%, rgba(251,191, 36,0.80) 0%, transparent 100%),
-    radial-gradient(1px   1px   at 72% 15%, rgba(249,115, 22,0.65) 0%, transparent 100%),
-    radial-gradient(2px   2px   at 38% 55%, rgba(239, 68, 68,0.55) 0%, transparent 100%),
-    radial-gradient(1px   1px   at 88% 60%, rgba(249,115, 22,0.70) 0%, transparent 100%),
-    radial-gradient(1.5px 1.5px at 22% 78%, rgba(253,230,138,0.60) 0%, transparent 100%),
-    radial-gradient(1px   1px   at 58% 10%, rgba(239, 68, 68,0.50) 0%, transparent 100%),
-    radial-gradient(1px   1px   at  5% 65%, rgba(251,191, 36,0.55) 0%, transparent 100%),
-    radial-gradient(2px   2px   at 92% 38%, rgba(249,115, 22,0.65) 0%, transparent 100%),
-    radial-gradient(1px   1px   at 48% 88%, rgba(239, 68, 68,0.55) 0%, transparent 100%),
-    radial-gradient(1.5px 1.5px at 30% 44%, rgba(251,191, 36,0.50) 0%, transparent 100%),
-    radial-gradient(1px   1px   at 65% 72%, rgba(249,115, 22,0.60) 0%, transparent 100%);
-  animation: ember-drift 3.5s ease-in-out infinite alternate;
+    /* Bright orange vents */
+    radial-gradient(ellipse 22% 18% at 40% 94%, rgba(251,120,5,0.70)  0%, transparent 58%),
+    radial-gradient(ellipse 18% 15% at 62% 90%, rgba(230,100,8,0.60)  0%, transparent 55%),
+    /* Slow-moving secondary rivers */
+    radial-gradient(ellipse 40% 28% at 20% 80%, rgba(200,50,6,0.55)   0%, transparent 60%),
+    radial-gradient(ellipse 35% 25% at 80% 78%, rgba(185,40,5,0.50)   0%, transparent 58%),
+    /* Far-field deep-red glow */
+    radial-gradient(ellipse 70% 20% at 50% 105%, rgba(140,25,4,0.45)  0%, transparent 52%);
+  animation: lava-flow-2 7.5s ease-in-out infinite;
+  animation-delay: -3.8s;
+  filter: blur(1px);
 }
 
-.space-bg::after {
-  animation-delay: 1.8s;
-  background-image:
-    radial-gradient(1.5px 1.5px at 18% 48%, rgba(253,230,138,0.65) 0%, transparent 100%),
-    radial-gradient(1px   1px   at 62% 30%, rgba(239, 68, 68,0.55) 0%, transparent 100%),
-    radial-gradient(1px   1px   at 42% 85%, rgba(249,115, 22,0.60) 0%, transparent 100%),
-    radial-gradient(2px   2px   at 78% 55%, rgba(251,191, 36,0.55) 0%, transparent 100%),
-    radial-gradient(1px   1px   at 32% 65%, rgba(239, 68, 68,0.60) 0%, transparent 100%),
-    radial-gradient(1.5px 1.5px at 50% 35%, rgba(253,230,138,0.50) 0%, transparent 100%),
-    radial-gradient(1px   1px   at 85% 18%, rgba(249,115, 22,0.55) 0%, transparent 100%);
-}
-
-@keyframes ember-drift {
-  from { opacity: 0.30; transform: translateY(0px); }
-  to   { opacity: 1.00; transform: translateY(-8px); }
+@keyframes lava-flow-2 {
+  0%   { transform: translate(  0%,   0%) scale(1.00); filter: blur(1px) brightness(1.00); }
+  25%  { transform: translate( -6%,  -4%) scale(1.05); filter: blur(2px) brightness(1.12); }
+  50%  { transform: translate(  5%,   6%) scale(0.96); filter: blur(0px) brightness(0.94); }
+  75%  { transform: translate( -4%,  -3%) scale(1.03); filter: blur(2px) brightness(1.08); }
+  100% { transform: translate(  0%,   0%) scale(1.00); filter: blur(1px) brightness(1.00); }
 }
 
 /* ── Game view: deep underground mine shaft ────────────────────────── */
 /* The board is the lit mine floor. Everything else is solid rock.      */
 .game-bg {
-  background:
-    /* Solid rock ceiling – almost no light reaches up here */
-    radial-gradient(ellipse 100% 28% at 50% 0%,   rgba(2,1,0,0.98)    0%, transparent 100%),
-    /* Narrow mine-shaft column: faint light leaking down from above */
-    radial-gradient(ellipse  14% 35% at 50% 0%,   rgba(92,45,10,0.22) 0%, transparent 100%),
-    /* Solid rock walls – near-total darkness pressing in hard */
-    radial-gradient(ellipse  28% 100% at   0% 50%, rgba(1,0,0,0.99)   0%, rgba(1,0,0,0) 100%),
-    radial-gradient(ellipse  28% 100% at 100% 50%, rgba(1,0,0,0.99)   0%, rgba(1,0,0,0) 100%),
-    /* Rock shoulder fade so the transition isn't a hard line */
-    radial-gradient(ellipse  48% 100% at   0% 50%, rgba(2,1,0,0.80)   0%, rgba(2,1,0,0) 100%),
-    radial-gradient(ellipse  48% 100% at 100% 50%, rgba(2,1,0,0.80)   0%, rgba(2,1,0,0) 100%),
-    /* Lava heat columns rising from the magma pool far below */
-    radial-gradient(ellipse 300% 55% at 50% 125%, rgba(200,30,10,0.80) 0%, transparent 58%),
-    radial-gradient(ellipse 160% 40% at 20% 120%, rgba(249,115,22,0.62) 0%, transparent 55%),
-    radial-gradient(ellipse 160% 40% at 80% 120%, rgba(180,55,10,0.62) 0%, transparent 55%),
-    radial-gradient(ellipse  70% 28% at 50% 122%, rgba(251,191,36,0.38) 0%, transparent 50%),
-    /* Deep rock base – charcoal-brown getting hotter toward the floor */
-    linear-gradient(180deg, #010100 0%, #060402 12%, #0d0703 35%, #170b05 60%, #220d06 82%, #2c1008 100%);
+  background-image:
+    radial-gradient(ellipse 100% 28% at 50% 0%,   rgba(2,1,0,0.97)    0%, transparent 100%),
+    radial-gradient(ellipse  14% 35% at 50% 0%,   rgba(92,45,10,0.18) 0%, transparent 100%),
+    radial-gradient(ellipse  28% 100% at   0% 50%, rgba(1,0,0,0.96)   0%, rgba(1,0,0,0) 100%),
+    radial-gradient(ellipse  28% 100% at 100% 50%, rgba(1,0,0,0.96)   0%, rgba(1,0,0,0) 100%),
+    radial-gradient(ellipse  50% 100% at   0% 50%, rgba(2,1,0,0.75)   0%, rgba(2,1,0,0) 100%),
+    radial-gradient(ellipse  50% 100% at 100% 50%, rgba(2,1,0,0.75)   0%, rgba(2,1,0,0) 100%),
+    radial-gradient(ellipse 300% 55% at 50% 125%, rgba(200,30,10,0.72) 0%, transparent 58%),
+    radial-gradient(ellipse 160% 40% at 20% 120%, rgba(249,115,22,0.55) 0%, transparent 55%),
+    radial-gradient(ellipse 160% 40% at 80% 120%, rgba(180,55,10,0.55) 0%, transparent 55%),
+    linear-gradient(180deg, rgba(2,1,0,0.55) 0%, rgba(6,3,1,0.35) 50%, rgba(10,5,2,0.25) 100%),
+    url('https://images.stockcake.com/public/8/5/b/85ba1ea6-a642-4461-9184-023423a2c12d_large/molten-earth-flows-stockcake.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
-/* Diamond ore veins embedded IN the rock walls (edges only, not floating) */
-/* + subtle horizontal rock-strata lines                                    */
+/* ── Game view lava layer 1 – flowing rivers behind the board ──────── */
 .game-bg::before {
+  content: '';
+  position: absolute;
+  inset: -15%;
+  pointer-events: none;
   background-image:
-    /* Horizontal rock strata – very subtle banding across the cave walls */
-    repeating-linear-gradient(
-      180deg,
-      transparent            0px,  transparent            38px,
-      rgba(50,25,8,0.18)    38px,  rgba(50,25,8,0.18)    40px,
-      transparent            40px,  transparent            82px,
-      rgba(30,15,4,0.12)    82px,  rgba(30,15,4,0.12)    84px,
-      transparent            84px,  transparent           130px,
-      rgba(40,20,6,0.10)   130px,  rgba(40,20,6,0.10)   131px
-    ),
-    /* ── Left wall diamonds ── */
-    radial-gradient(2px   2px   at  2% 12%, rgba(165,243,252,0.90) 0%, transparent 100%),
-    radial-gradient(3px   3px   at  5% 28%, rgba(165,243,252,0.80) 0%, transparent 100%),
-    radial-gradient(2px   2px   at  3% 44%, rgba(165,243,252,0.85) 0%, transparent 100%),
-    radial-gradient(1.5px 1.5px at  7% 58%, rgba(165,243,252,0.70) 0%, transparent 100%),
-    radial-gradient(3px   3px   at  4% 72%, rgba(165,243,252,0.78) 0%, transparent 100%),
-    radial-gradient(2px   2px   at  6% 86%, rgba(165,243,252,0.82) 0%, transparent 100%),
-    radial-gradient(2px   2px   at  9% 36%, rgba(165,243,252,0.65) 0%, transparent 100%),
-    radial-gradient(1.5px 1.5px at 11% 62%, rgba(165,243,252,0.72) 0%, transparent 100%),
-    /* ── Right wall diamonds ── */
-    radial-gradient(2px   2px   at 98%  8%, rgba(165,243,252,0.88) 0%, transparent 100%),
-    radial-gradient(3px   3px   at 95% 22%, rgba(165,243,252,0.78) 0%, transparent 100%),
-    radial-gradient(2px   2px   at 97% 40%, rgba(165,243,252,0.83) 0%, transparent 100%),
-    radial-gradient(1.5px 1.5px at 93% 55%, rgba(165,243,252,0.68) 0%, transparent 100%),
-    radial-gradient(3px   3px   at 96% 70%, rgba(165,243,252,0.76) 0%, transparent 100%),
-    radial-gradient(2px   2px   at 94% 84%, rgba(165,243,252,0.80) 0%, transparent 100%),
-    radial-gradient(2px   2px   at 90% 30%, rgba(165,243,252,0.63) 0%, transparent 100%),
-    radial-gradient(1.5px 1.5px at 88% 65%, rgba(165,243,252,0.70) 0%, transparent 100%),
-    /* ── Ceiling diamonds ── */
-    radial-gradient(2px   2px   at 18%  4%, rgba(165,243,252,0.75) 0%, transparent 100%),
-    radial-gradient(3px   3px   at 38%  3%, rgba(165,243,252,0.68) 0%, transparent 100%),
-    radial-gradient(2px   2px   at 58%  5%, rgba(165,243,252,0.80) 0%, transparent 100%),
-    radial-gradient(1.5px 1.5px at 78%  2%, rgba(165,243,252,0.72) 0%, transparent 100%),
-    radial-gradient(2px   2px   at 25%  9%, rgba(165,243,252,0.60) 0%, transparent 100%),
-    radial-gradient(2px   2px   at 72%  8%, rgba(165,243,252,0.65) 0%, transparent 100%);
-  animation: ore-vein-glint 2.8s ease-in-out infinite alternate;
+    /* Intense lava rivers at the bottom (behind board) */
+    radial-gradient(ellipse 60% 45% at 30% 90%, rgba(230,60,8,0.90)   0%, transparent 65%),
+    radial-gradient(ellipse 55% 42% at 75% 88%, rgba(200,45,5,0.82)   0%, transparent 62%),
+    radial-gradient(ellipse 32% 24% at 52% 95%, rgba(251,150,10,0.72) 0%, transparent 58%),
+    radial-gradient(ellipse 95% 32% at 50% 102%, rgba(155,28,4,0.60)  0%, transparent 55%),
+    /* Wall lava tendrils */
+    radial-gradient(ellipse 18% 35% at  2% 55%, rgba(200,50,8,0.55)   0%, transparent 60%),
+    radial-gradient(ellipse 18% 35% at 98% 50%, rgba(180,40,6,0.52)   0%, transparent 58%),
+    /* Diamond ore glints – left wall */
+    radial-gradient(2px 2px at  4% 18%, rgba(165,243,252,0.90) 0%, transparent 100%),
+    radial-gradient(3px 3px at  6% 40%, rgba(165,243,252,0.80) 0%, transparent 100%),
+    radial-gradient(2px 2px at  3% 62%, rgba(165,243,252,0.85) 0%, transparent 100%),
+    radial-gradient(2px 2px at  7% 80%, rgba(165,243,252,0.75) 0%, transparent 100%),
+    /* Diamond ore glints – right wall */
+    radial-gradient(3px 3px at 96% 25%, rgba(165,243,252,0.85) 0%, transparent 100%),
+    radial-gradient(2px 2px at 94% 48%, rgba(165,243,252,0.80) 0%, transparent 100%),
+    radial-gradient(2px 2px at 97% 70%, rgba(165,243,252,0.78) 0%, transparent 100%),
+    /* Ceiling diamonds */
+    radial-gradient(2px 2px at 22%  3%, rgba(165,243,252,0.72) 0%, transparent 100%),
+    radial-gradient(3px 3px at 52%  2%, rgba(165,243,252,0.78) 0%, transparent 100%),
+    radial-gradient(2px 2px at 80%  4%, rgba(165,243,252,0.70) 0%, transparent 100%);
+  animation: game-lava-flow-1 9s ease-in-out infinite;
+  filter: blur(1px);
 }
 
-@keyframes ore-vein-glint {
-  from { opacity: 0.35; }
-  to   { opacity: 1.00; }
+@keyframes game-lava-flow-1 {
+  0%   { transform: translate(  0%,   0%) scale(1.00); filter: blur(1px) brightness(0.88); }
+  25%  { transform: translate(  5%,  -7%) scale(1.05); filter: blur(0px) brightness(1.12); }
+  50%  { transform: translate( -6%,   4%) scale(0.96); filter: blur(2px) brightness(0.92); }
+  75%  { transform: translate(  4%,  -5%) scale(1.04); filter: blur(0px) brightness(1.08); }
+  100% { transform: translate(  0%,   0%) scale(1.00); filter: blur(1px) brightness(0.88); }
 }
 
-/* Lava cracks glowing on the walls + magma pool flicker below */
+/* ── Game view lava layer 2 – faster ripple + wall cracks ──────────── */
 .game-bg::after {
-  animation-delay: 0.7s;
+  content: '';
+  position: absolute;
+  inset: -15%;
+  pointer-events: none;
   background-image:
-    /* Lava crack – left wall, two fissures */
-    radial-gradient(ellipse 4%  30% at  1% 38%, rgba(239,68,68,0.55)  0%, transparent 100%),
-    radial-gradient(ellipse 3%  18% at  0% 65%, rgba(249,115,22,0.45) 0%, transparent 100%),
-    /* Lava crack – right wall */
-    radial-gradient(ellipse 4%  25% at 99% 28%, rgba(239,68,68,0.50)  0%, transparent 100%),
-    radial-gradient(ellipse 3%  20% at 100% 58%, rgba(249,115,22,0.42) 0%, transparent 100%),
-    /* Lava pool below – three heat columns flickering */
-    radial-gradient(ellipse 110% 26% at 35% 106%, rgba(220,38,38,0.55) 0%, transparent 58%),
-    radial-gradient(ellipse  80% 20% at 65% 108%, rgba(249,115,22,0.48) 0%, transparent 53%),
-    radial-gradient(ellipse  55% 18% at 50% 110%, rgba(251,191,36,0.36) 0%, transparent 48%);
-  animation: lava-crack-flicker 1.8s ease-in-out infinite alternate;
+    /* Fast-moving bright vents */
+    radial-gradient(ellipse 25% 20% at 42% 96%, rgba(251,130,5,0.78)  0%, transparent 58%),
+    radial-gradient(ellipse 20% 16% at 65% 92%, rgba(240,110,8,0.68)  0%, transparent 55%),
+    /* Lava crack glows – walls */
+    radial-gradient(ellipse 4% 28% at  2% 42%, rgba(239,68,68,0.62)   0%, transparent 100%),
+    radial-gradient(ellipse 4% 22% at  1% 68%, rgba(249,115,22,0.52)  0%, transparent 100%),
+    radial-gradient(ellipse 4% 24% at 98% 32%, rgba(239,68,68,0.58)   0%, transparent 100%),
+    radial-gradient(ellipse 4% 20% at 99% 62%, rgba(249,115,22,0.48)  0%, transparent 100%),
+    /* Base heat */
+    radial-gradient(ellipse 80% 22% at 50% 108%, rgba(145,25,4,0.50)  0%, transparent 52%);
+  animation: game-lava-flow-2 5.5s ease-in-out infinite;
+  animation-delay: -2.5s;
+  filter: blur(0px);
 }
 
-@keyframes lava-crack-flicker {
-  0%   { opacity: 0.45; }
-  30%  { opacity: 0.90; }
-  60%  { opacity: 0.52; }
-  100% { opacity: 0.80; }
+@keyframes game-lava-flow-2 {
+  0%   { transform: translate(  0%,   0%) scale(1.00); opacity: 0.80; }
+  30%  { transform: translate( -7%,  -5%) scale(1.06); opacity: 1.00; }
+  60%  { transform: translate(  6%,   6%) scale(0.95); opacity: 0.75; }
+  100% { transform: translate(  0%,   0%) scale(1.00); opacity: 0.80; }
 }
 
 /* ── Game board ─────────────────────────────────────────────────────── */

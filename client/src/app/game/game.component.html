@@ -6,7 +6,6 @@
      [class.game-bg]="currentView === 'game'"
      [class.large-mode]="isLargeMode">
 
-
   <!-- ════════════════════════════════════════════════════════
        SETUP / LANDING VIEW
        Scrollable. Hero above fold, features + how-to below.
@@ -15,23 +14,24 @@
        class="flex-1 overflow-y-auto overscroll-none">
 
     <!-- ── HERO ──────────────────────────────────────────────── -->
-    <section class="min-h-screen flex flex-col items-center justify-center
-                    px-5 pt-10 pb-6 gap-5 relative">
+    <section class="min-h-screen flex flex-col items-center justify-start
+                    px-5 pt-16 pb-2 gap-5 relative">
 
       <!-- Badge -->
-      <div class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest
-                  border" style="background:rgba(92,45,0,0.5);
-                  border-color:rgba(251,191,36,0.35); color:rgba(251,191,36,0.9);">
-        ⛏ No install &nbsp;·&nbsp; No account &nbsp;·&nbsp; Pure chaos
+      <div class="px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest border"
+           style="background:rgba(0,0,0,0.65); backdrop-filter:blur(8px);
+                  border-color:rgba(251,191,36,0.60); color:rgba(251,191,36,1);">
+        ⛏ No downloads &nbsp;·&nbsp; No login &nbsp;·&nbsp; Unlimited fun
       </div>
 
       <!-- Title -->
       <div class="text-center">
         <div class="text-7xl float-bounce mb-2">💎</div>
-        <h1 class="text-4xl font-black tracking-tight leading-none
+        <h1 class="text-4xl font-black tracking-wide leading-none
                    text-transparent bg-clip-text
                    bg-gradient-to-r from-yellow-300 via-amber-400 to-orange-500
-                   drop-shadow-lg">
+                   drop-shadow-lg"
+            style="font-family: Georgia, 'Palatino Linotype', Palatino, serif;">
           Diamond Heist
         </h1>
         <p class="text-amber-600 text-sm font-black mt-1 tracking-wider">
@@ -40,8 +40,9 @@
       </div>
 
       <!-- Tagline -->
-      <p class="text-center text-white/70 text-sm font-bold leading-relaxed max-w-xs">
-        Deep in Earth's mantle. One diamond glows.<br>
+      <p class="text-center text-sm font-bold leading-relaxed max-w-xs"
+         style="color:rgba(255,255,255,0.92); text-shadow:0 1px 6px rgba(0,0,0,0.85);">
+        Deep in Earth's mantle. A diamond glows.<br>
         Everyone wants it. Zero mercy. Roll or get rolled.
       </p>
 
@@ -50,7 +51,8 @@
 
         <!-- Name -->
         <div>
-          <label class="text-amber-500 text-[10px] font-black uppercase tracking-widest mb-1 block">
+          <label class="text-yellow-300 text-[10px] font-black uppercase tracking-widest mb-1 block"
+                 style="text-shadow:0 1px 4px rgba(0,0,0,0.8);">
             Your Miner Name
           </label>
           <input
@@ -61,10 +63,11 @@
             autocomplete="off"
             autocapitalize="words"
             class="w-full px-4 py-3 rounded-2xl text-base font-bold
-                   bg-white/10 border-2 border-amber-700 text-white
-                   placeholder-amber-800 focus:outline-none focus:border-yellow-400
-                   focus:bg-white/15 transition-colors"
-            style="user-select: text; -webkit-user-select: text;"
+                   text-white focus:outline-none transition-colors"
+            style="background:rgba(0,0,0,0.62); backdrop-filter:blur(8px);
+                   border:2px solid rgba(251,191,36,0.60);
+                   placeholder-color:rgba(180,120,40,0.8);
+                   user-select:text; -webkit-user-select:text;"
           />
         </div>
 
@@ -73,8 +76,9 @@
           (click)="createRoom()"
           [disabled]="!playerName.trim() || isBusy"
           class="btn-primary btn-roll w-full py-4 rounded-2xl text-lg
-                 disabled:opacity-40 disabled:cursor-not-allowed disabled:animation-none"
-          style="touch-action: manipulation;">
+                 disabled:opacity-40 disabled:cursor-not-allowed"
+          style="touch-action:manipulation; backdrop-filter:blur(4px);
+                 border-color:rgba(251,191,36,0.75);">
           <span *ngIf="!isBusy">⛏ Start a New Mine</span>
           <span *ngIf="isBusy" class="flex items-center justify-center gap-2">
             <span class="pulse-dot inline-block w-2 h-2 rounded-full"
@@ -85,9 +89,13 @@
 
         <!-- Divider -->
         <div class="flex items-center gap-3">
-          <div class="flex-1 h-px" style="background:rgba(146,64,14,0.4);"></div>
-          <span class="text-amber-800 text-[10px] font-black tracking-widest">OR JOIN CREW</span>
-          <div class="flex-1 h-px" style="background:rgba(146,64,14,0.4);"></div>
+          <div class="flex-1 h-px" style="background:rgba(251,191,36,0.35);"></div>
+          <span class="font-black tracking-widest"
+                style="font-size:0.6rem; color:rgba(251,191,36,0.85);
+                       text-shadow:0 1px 4px rgba(0,0,0,0.9);">
+            OR JOIN CREW
+          </span>
+          <div class="flex-1 h-px" style="background:rgba(251,191,36,0.35);"></div>
         </div>
 
         <!-- Join -->
@@ -100,19 +108,21 @@
             autocomplete="off"
             autocapitalize="characters"
             class="flex-1 px-4 py-3 rounded-2xl text-base font-black
-                   bg-white/10 border-2 border-amber-800 text-white
-                   placeholder-amber-800 focus:outline-none focus:border-yellow-400
+                   text-white focus:outline-none
                    uppercase tracking-[0.3em] text-center transition-colors"
-            style="user-select: text; -webkit-user-select: text;"
+            style="background:rgba(0,0,0,0.62); backdrop-filter:blur(8px);
+                   border:2px solid rgba(251,191,36,0.50);
+                   user-select:text; -webkit-user-select:text;"
           />
           <button
             (click)="joinRoom()"
             [disabled]="!playerName.trim() || joinCodeInput.length < 4 || isBusy"
             class="btn-primary px-5 py-3 rounded-2xl font-black text-sm
-                   bg-gradient-to-br from-cyan-500 to-blue-600 text-white
-                   shadow-lg shadow-blue-900/50
-                   disabled:opacity-40 disabled:cursor-not-allowed"
-            style="touch-action: manipulation;">
+                   text-yellow-100 disabled:opacity-40 disabled:cursor-not-allowed"
+            style="touch-action:manipulation; backdrop-filter:blur(4px);
+                   background:linear-gradient(135deg,#b45309,#7c2d12);
+                   border:2px solid rgba(251,191,36,0.55);
+                   box-shadow:0 4px 16px rgba(0,0,0,0.6);">
             🚪 Join
           </button>
         </div>
@@ -127,7 +137,10 @@
       </div>
 
       <!-- Scroll hint -->
-      <div class="flex flex-col items-center gap-1 mt-2 opacity-40">
+      <div class="flex flex-col items-center gap-0.5 mt-1 cursor-pointer"
+           style="opacity:0.75;"
+           (click)="scrollToFeatures()"
+           style="touch-action: manipulation;">
         <span class="text-amber-500 text-[10px] font-bold uppercase tracking-widest">
           See what's inside
         </span>
@@ -141,7 +154,7 @@
 
 
     <!-- ── FEATURES ─────────────────────────────────────────── -->
-    <section class="px-5 pb-8">
+    <section id="features" class="px-5 pb-8 pt-2">
 
       <div class="text-center mb-5">
         <p class="text-[10px] font-black uppercase tracking-widest text-amber-600 mb-1">
@@ -155,25 +168,25 @@
         <div class="feature-card">
           <span class="feature-card__icon">👥</span>
           <p class="feature-card__title">Bring the Whole Squad</p>
-          <p class="feature-card__body">Family. Friends. Enemies. Whoever. More miners = more chaos.</p>
+          <p class="feature-card__body">Family, friends, enemies. More miners, more chaos.</p>
         </div>
 
         <div class="feature-card">
           <span class="feature-card__icon">🎁</span>
           <p class="feature-card__title">Mystery Boxes</p>
-          <p class="feature-card__body">10 per game. Could save you. Could end you. Open it anyway.</p>
+          <p class="feature-card__body">10 per round. Open it to change your game.</p>
         </div>
 
         <div class="feature-card">
           <span class="feature-card__icon">⏱</span>
           <p class="feature-card__title">Turn Timer</p>
-          <p class="feature-card__body">No stalling. Move in time or get auto-skipped. Tick tick.</p>
+          <p class="feature-card__body">Move in time or get auto-skipped. No waiting.</p>
         </div>
 
         <div class="feature-card">
           <span class="feature-card__icon">📊</span>
           <p class="feature-card__title">Session Score</p>
-          <p class="feature-card__body">Points survive rounds. Rivalries are forever. One more game.</p>
+          <p class="feature-card__body">Points survive rounds. Rivalries last forever.</p>
         </div>
 
       </div>
@@ -223,6 +236,14 @@
           <div>
             <p class="how-step__title">Session scores carry over 📊</p>
             <p class="how-step__body">Play Again resets the board — not the leaderboard. Keep going until someone rage quits.</p>
+          </div>
+        </div>
+
+        <div class="how-step">
+          <span class="how-step__num">5</span>
+          <div>
+            <p class="how-step__title">No endless games ⏰</p>
+            <p class="how-step__body">Host can set a 5, 10, or 20 min game clock. When it hits zero — time's up, highest score wins.</p>
           </div>
         </div>
 
@@ -301,7 +322,8 @@
 
     <div class="text-4xl float-bounce">💎</div>
     <h1 class="text-xl font-black text-transparent bg-clip-text
-               bg-gradient-to-r from-yellow-300 via-amber-400 to-orange-500">
+               bg-gradient-to-r from-yellow-300 via-amber-400 to-orange-500"
+        style="font-family: Georgia, 'Palatino Linotype', Palatino, serif; letter-spacing: 0.05em;">
       Diamond Heist
     </h1>
 
@@ -480,6 +502,28 @@
       </div>
     </div>
 
+    <!-- Host: Game timer picker -->
+    <div *ngIf="isHost && myReady"
+         class="w-full max-w-xs bg-white/8 border border-purple-700
+                rounded-2xl px-4 py-3 flex flex-col gap-2">
+      <p class="text-purple-300 text-xs font-black uppercase tracking-widest text-center">
+        ⏰ Game Timer
+      </p>
+      <div class="flex justify-center gap-2">
+        <button
+          *ngFor="let opt of gameDurationOptions"
+          (click)="gameDurationInput = opt.value"
+          class="px-3 h-9 rounded-xl font-black text-sm transition-all"
+          [class.bg-yellow-400]="gameDurationInput === opt.value"
+          [class.text-slate-900]="gameDurationInput === opt.value"
+          [class.bg-purple-800]="gameDurationInput !== opt.value"
+          [class.text-purple-300]="gameDurationInput !== opt.value"
+          style="touch-action: manipulation;">
+          {{ opt.label }}
+        </button>
+      </div>
+    </div>
+
     <!-- Host: Start Game button (only active when everyone is ready) -->
     <button
       *ngIf="isHost && myReady"
@@ -528,10 +572,21 @@
                 border-b-2 pt-safe"
          style="background:rgba(12,8,4,0.92); border-color:rgba(180,83,9,0.55);">
 
-      <!-- Room code -->
-      <span class="text-yellow-400 font-black font-mono text-xs tracking-widest">
-        {{ roomCode }}
-      </span>
+      <!-- Room code + game clock -->
+      <div class="flex items-center gap-2">
+        <span class="text-yellow-400 font-black font-mono text-xs tracking-widest">
+          {{ roomCode }}
+        </span>
+        <span *ngIf="gameTimeLeft > 0"
+              class="font-black font-mono text-xs px-1.5 py-0.5 rounded-lg transition-colors"
+              [class.text-green-400]="gameTimeLeft > 60"
+              [class.text-yellow-300]="gameTimeLeft <= 60 && gameTimeLeft > 20"
+              [class.text-red-400]="gameTimeLeft <= 20"
+              [class.animate-pulse]="gameTimeLeft <= 20"
+              style="background:rgba(0,0,0,0.45);">
+          ⏰ {{ gameTimeFormatted }}
+        </span>
+      </div>
 
       <!-- Turn text -->
       <div class="flex-1 text-center">
@@ -600,9 +655,10 @@
     <div class="flex-shrink-0 relative flex items-center justify-between px-3 py-1 border-b"
          style="background:rgba(10,6,3,0.75); border-color:rgba(146,64,14,0.35);">
 
-      <!-- Diamonds -->
+      <!-- Diamonds – left -->
       <div class="flex items-center gap-1.5">
-        <span class="text-purple-400 text-[10px] font-black uppercase tracking-widest">
+        <span class="text-[10px] font-black uppercase tracking-widest"
+              style="color:rgba(251,191,36,0.85);">
           Diamonds
         </span>
         <span
@@ -614,7 +670,7 @@
         </span>
       </div>
 
-      <!-- Reaction trigger + turn timer stacked -->
+      <!-- Reaction trigger + turn timer – right side -->
       <div class="flex flex-col items-center gap-0.5">
         <button
           (click)="toggleReactionPanel()"
@@ -636,10 +692,10 @@
         </div>
       </div>
 
-      <!-- Reaction panel (drops down from this strip) -->
+      <!-- Reaction panel – drops from right -->
       <div *ngIf="isReactionPanelOpen"
-           class="absolute top-full right-0 z-30 w-56 rounded-bl-2xl rounded-br-2xl
-                  overflow-hidden reaction-panel-drop"
+           class="absolute top-full right-0 z-30 w-56
+                  rounded-bl-2xl rounded-br-2xl overflow-hidden reaction-panel-drop"
            style="background:#130b04; border:1px solid rgba(180,83,9,0.55); box-shadow:0 16px 40px rgba(0,0,0,0.85);">
 
         <!-- Emoji grid -->
@@ -760,14 +816,17 @@
       <div class="flex items-center justify-between px-3 py-2 gap-2">
 
         <!-- Left: mini player legend (names ≤4, emoji grid 5+) -->
-        <div style="min-width: 72px; max-width: 72px;">
+        <div style="min-width: 72px; max-width: 72px;
+                    background:rgba(0,0,0,0.92); backdrop-filter:blur(6px);
+                    border:1px solid rgba(251,191,36,0.40);
+                    border-radius:12px; padding:6px 7px;">
 
           <!-- ≤ 4 players: emoji + name list -->
           <ng-container *ngIf="playerList.length <= 4">
             <div *ngFor="let player of playerList; trackBy: trackByPlayerId"
                  class="flex items-center gap-1 text-[10px] font-bold leading-tight mb-0.5"
                  [class.text-green-300]="player.id === currentPlayerId"
-                 [class.text-purple-500]="player.id !== currentPlayerId">
+                 [style.color]="player.id !== currentPlayerId ? 'rgba(255,255,255,0.72)' : ''">
               <span class="text-base leading-none flex-shrink-0">{{ player.emoji }}</span>
               <span class="truncate">{{ player.name }}</span>
               <span *ngIf="player.id === currentPlayerId"
@@ -777,7 +836,8 @@
 
           <!-- 5+ players: compact emoji grid -->
           <ng-container *ngIf="playerList.length > 4">
-            <p class="text-purple-500 text-[7px] font-black uppercase tracking-wide mb-1">
+            <p class="text-[7px] font-black uppercase tracking-wide mb-1"
+               style="color:rgba(251,191,36,0.80);">
               👥 {{ playerList.length }} players
             </p>
             <div class="flex flex-wrap gap-1">
@@ -895,27 +955,32 @@
         </div>
 
         <!-- Right: session points leaderboard (top 5) -->
-        <div style="min-width: 72px; max-width: 72px;">
+        <div style="min-width: 72px; max-width: 72px;
+                    background:rgba(0,0,0,0.92); backdrop-filter:blur(6px);
+                    border:1px solid rgba(251,191,36,0.40);
+                    border-radius:12px; padding:6px 7px;">
           <div *ngIf="sessionLeaderboard.length > 0" class="flex flex-col gap-0.5">
-            <p class="text-purple-400 text-[8px] font-black uppercase tracking-wide mb-0.5">
+            <p class="text-[8px] font-black uppercase tracking-wide mb-0.5"
+               style="color:rgba(251,191,36,0.90);">
               📊 Points
             </p>
             <div *ngFor="let entry of sessionLeaderboard.slice(0, 5); let i = index"
                  class="flex items-center gap-0.5 leading-tight">
               <span class="text-base leading-none flex-shrink-0">{{ entry.emoji }}</span>
               <span class="text-[8px] font-bold truncate flex-1"
-                    [class.text-yellow-400]="i === 0"
-                    [class.text-purple-300]="i !== 0">
+                    [class.text-yellow-300]="i === 0"
+                    [style.color]="i !== 0 ? 'rgba(255,255,255,0.75)' : ''">
                 {{ entry.name }}
               </span>
               <span class="text-[8px] font-black flex-shrink-0"
                     [class.text-green-400]="i === 0"
-                    [class.text-purple-400]="i !== 0">
+                    [style.color]="i !== 0 ? 'rgba(251,191,36,0.70)' : ''">
                 {{ entry.score }}
               </span>
             </div>
             <p *ngIf="sessionLeaderboard.length > 5"
-               class="text-[7px] text-purple-600 font-bold mt-0.5">
+               class="text-[7px] font-bold mt-0.5"
+               style="color:rgba(251,191,36,0.55);">
               +{{ sessionLeaderboard.length - 5 }} more
             </p>
           </div>
@@ -958,7 +1023,7 @@
         </p>
         <h2 class="text-2xl font-black text-transparent bg-clip-text
                    bg-gradient-to-r from-yellow-300 to-orange-400">
-          All Diamonds Claimed!
+          {{ isTimeUp ? "⏰ Time's Up!" : 'All Diamonds Claimed!' }}
         </h2>
       </div>
 
