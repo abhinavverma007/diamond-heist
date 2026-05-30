@@ -84,6 +84,9 @@ interface RoomState {
   gamesPlayed: number;
   turnDuration: number;                  // seconds per turn; 0 = disabled
   turnTimerHandle: ReturnType<typeof setTimeout> | null;
+  gameDuration: number;                  // total game seconds; 0 = no limit
+  gameTimerHandle: ReturnType<typeof setTimeout> | null;
+  gameStartedAt: number;                 // unix ms when game started
   lastActivityAt: number;                // unix ms – for TTL eviction
 }
 
@@ -150,6 +153,7 @@ setInterval(() => {
   for (const [code, room] of Object.entries(rooms)) {
     if (now - room.lastActivityAt > ROOM_TTL_MS) {
       clearTurnTimer(room);
+      clearGameTimer(room);
       io.to(code).emit('room_expired', { message: 'Room closed after 2 hours of inactivity.' });
       io.in(code).disconnectSockets(true);
       delete rooms[code];
@@ -372,7 +376,8 @@ function removePlayerFromRoom(roomCode: string, playerId: string): void {
   room.playerOrder = room.playerOrder.filter(id => id !== playerId);
 
   if (room.playerOrder.length === 0) {
-    clearTurnTimer(room); // prevent dangling closure after room is gone
+    clearTurnTimer(room);
+    clearGameTimer(room);
     delete rooms[roomCode];
     console.log(`[Room ${roomCode}] Empty – deleted`);
     return;
@@ -424,6 +429,13 @@ function clearTurnTimer(room: RoomState): void {
   if (room.turnTimerHandle) {
     clearTimeout(room.turnTimerHandle);
     room.turnTimerHandle = null;
+  }
+}
+
+function clearGameTimer(room: RoomState): void {
+  if (room.gameTimerHandle) {
+    clearTimeout(room.gameTimerHandle);
+    room.gameTimerHandle = null;
   }
 }
 
@@ -497,6 +509,9 @@ io.on('connection', (socket: Socket) => {
       boxes: [],
       turnDuration: 60,
       turnTimerHandle: null,
+      gameDuration: 0,
+      gameTimerHandle: null,
+      gameStartedAt: 0,
       lastActivityAt: Date.now(),
       sessionScores: {},
       gamesPlayed: 0,
@@ -572,7 +587,7 @@ io.on('connection', (socket: Socket) => {
 
   // ── Start Game ────────────────────────────────────────────────────────────
 
-  socket.on('start_game', ({ roomCode, diamondCount, turnDuration }: { roomCode: string; diamondCount?: number; turnDuration?: number }) => {
+  socket.on('start_game', ({ roomCode, diamondCount, turnDuration, gameDuration }: { roomCode: string; diamondCount?: number; turnDuration?: number; gameDuration?: number }) => {
     const room = rooms[roomCode];
     if (!room) return;
 
@@ -595,9 +610,13 @@ io.on('connection', (socket: Socket) => {
     }
 
     const count = Math.min(Math.max(1, diamondCount ?? 1), 6);
-    // 0 = disabled; clamp valid values to 15–180 s
-    room.turnDuration = turnDuration === 0 ? 0 : Math.min(180, Math.max(15, turnDuration ?? 60));
-    room.gameStarted = true;
+    // 0 = disabled; clamp turn duration to 15–180 s
+    room.turnDuration  = turnDuration  === 0 ? 0 : Math.min(180, Math.max(15, turnDuration  ?? 60));
+    // 0 = no limit; only accept the four preset values (5/10/20 min)
+    const VALID_GAME_DURATIONS = new Set([0, 300, 600, 1200]);
+    room.gameDuration  = VALID_GAME_DURATIONS.has(gameDuration ?? 0) ? (gameDuration ?? 0) : 0;
+    room.gameStartedAt = Date.now();
+    room.gameStarted   = true;
     room.winners = [];
     room.turnIndex = 0;
     room.currentRoll = 0;
@@ -620,11 +639,42 @@ io.on('connection', (socket: Socket) => {
       currentPlayerName: room.players[firstId].name,
       boxes: room.boxes.map(b => ({ id: b.id, pos: b.pos })),
       sessionLeaderboard: getSessionLeaderboard(room),
-      gamesPlayed: room.gamesPlayed,
-      turnDuration: room.turnDuration,
+      gamesPlayed:   room.gamesPlayed,
+      turnDuration:  room.turnDuration,
+      gameDuration:  room.gameDuration,
+      gameStartedAt: room.gameStartedAt,
     });
 
     startTurnTimer(roomCode, room);
+
+    if (room.gameDuration > 0) {
+      room.gameTimerHandle = setTimeout(() => {
+        room.gameTimerHandle = null;
+        if (!room.gameStarted) return;
+
+        clearTurnTimer(room);
+        room.gameStarted = false;
+
+        // Participation points for everyone still connected
+        room.playerOrder.forEach(id => {
+          const p = room.players[id];
+          if (p && !p.disconnected) {
+            room.sessionScores[p.sessionId] = (room.sessionScores[p.sessionId] ?? 0) + 10;
+          }
+        });
+        room.gamesPlayed++;
+
+        io.to(roomCode).emit('game_won', {
+          winners:           room.winners,
+          players:           room.players,
+          sessionLeaderboard: getSessionLeaderboard(room),
+          gamesPlayed:       room.gamesPlayed,
+          timeUp:            true,
+        });
+        console.log(`[Room ${roomCode}] Game timer expired – force ended`);
+      }, room.gameDuration * 1000);
+    }
+
     console.log(`[Room ${roomCode}] Game started – ${count} diamond(s) stacked at (${room.diamond.x},${room.diamond.y})`);
   });
 
@@ -748,7 +798,7 @@ io.on('connection', (socket: Socket) => {
       room.sessionScores[sid] = (room.sessionScores[sid] ?? 0) + pts;
 
       const gameOver = room.diamondsRemaining === 0;
-      if (gameOver) { room.diamond = null; room.gameStarted = false; }
+      if (gameOver) { clearGameTimer(room); room.diamond = null; room.gameStarted = false; }
 
       advanceTurn(room);
       const nextId = room.playerOrder[room.turnIndex];
@@ -838,6 +888,7 @@ io.on('connection', (socket: Socket) => {
 
     // TODO: Clear previous player coordinates on game reset – re-index after any disconnects
     clearTurnTimer(room);
+    clearGameTimer(room);
     room.gameStarted = false;
     room.winners = [];
     room.currentRoll = 0;
@@ -976,8 +1027,10 @@ io.on('connection', (socket: Socket) => {
       winners: room.winners,
       boxes: room.boxes.map(b => ({ id: b.id, pos: b.pos })),
       sessionLeaderboard: getSessionLeaderboard(room),
-      gamesPlayed: room.gamesPlayed,
-      turnDuration: room.turnDuration,
+      gamesPlayed:   room.gamesPlayed,
+      turnDuration:  room.turnDuration,
+      gameDuration:  room.gameDuration,
+      gameStartedAt: room.gameStartedAt,
     });
 
     socket.to(roomCode).emit('player_reconnected', {
