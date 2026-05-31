@@ -197,10 +197,12 @@ function getPerimeter(): Point[] {
 function assignStartPositions(room: RoomState): void {
   const perimeter = getPerimeter();
   const total = room.playerOrder.length;
+  // Random offset each game so players never start at the same edge twice
+  const offset = Math.floor(Math.random() * perimeter.length);
   room.playerOrder.forEach((id, idx) => {
     const p = room.players[id];
     if (!p) return;
-    const periIdx = Math.floor((idx * perimeter.length) / total);
+    const periIdx = (offset + Math.floor((idx * perimeter.length) / total)) % perimeter.length;
     p.x = perimeter[periIdx].x;
     p.y = perimeter[periIdx].y;
     p.startX = p.x;
@@ -350,9 +352,11 @@ function getSessionLeaderboard(room: RoomState): SessionEntry[] {
 }
 
 function spawnDiamond(players: Record<string, Player>): Point {
-  const MAX_ATTEMPTS = 100;
+  const MAX_ATTEMPTS = 200;
   const center = Math.floor(GRID_SIZE / 2);
-  const zone = Math.floor(GRID_SIZE / 4);
+  // zone = GRID_SIZE/3 gives a 15×15 inner area (x: 3–17, y: 3–17) on the 21×21 board —
+  // 51% of the board vs the old 27%, with a 3-cell buffer from the player perimeter.
+  const zone = Math.floor(GRID_SIZE / 3);
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const x = center - zone + Math.floor(Math.random() * (zone * 2 + 1));
     const y = center - zone + Math.floor(Math.random() * (zone * 2 + 1));
@@ -385,8 +389,15 @@ function removePlayerFromRoom(roomCode: string, playerId: string): void {
 
   if (wasHost) room.players[room.playerOrder[0]].isHost = true;
 
+  const defaultEmojiSet = new Set(PLAYER_EMOJIS);
   room.playerOrder.forEach((id, idx) => {
-    room.players[id].color = PLAYER_COLORS[idx % PLAYER_COLORS.length];
+    const p = room.players[id];
+    p.color = PLAYER_COLORS[idx % PLAYER_COLORS.length];
+    // Only renumber players who still have a default number emoji (1️⃣–🔟).
+    // Players who customised their emoji keep their choice.
+    if (defaultEmojiSet.has(p.emoji)) {
+      p.emoji = PLAYER_EMOJIS[idx % PLAYER_EMOJIS.length];
+    }
   });
 
   // Clamp turnIndex so it never goes out of bounds after the player list shrinks.
